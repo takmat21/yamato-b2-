@@ -1,0 +1,11 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 注文データ（誤コミット防止。手元のサンプル等）
+sample/
+*.local.csv
+*.local.txt

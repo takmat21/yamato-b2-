@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ヤマトB2 伝票変換ツール（ZAZOO）</title>
+<script src="vendor/encoding.min.js"></script>
+<style>
+:root{
+  --bg:#f4f1ea; --card:#fffdf8; --ink:#2b2b29; --sub:#7a756c;
+  --line:#e4ded2; --accent:#1f6f5c; --accent2:#d9f0e8;
+  --warn:#c0392b; --warnbg:#fdecea; --chip:#eef4f1;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px}
+header h1{font-size:20px;margin:0 0 2px;letter-spacing:.02em}
+header p{margin:0;color:var(--sub);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:18px;
+  box-shadow:0 1px 0 rgba(0,0,0,.02)}
+details.card[open]{padding-bottom:20px}
+details.card>summary{cursor:pointer;font-weight:600;list-style:none;font-size:14px}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary::before{content:"▸ ";color:var(--accent)}
+details.card[open]>summary::before{content:"▾ "}
+.setgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+.setgrid label{display:flex;flex-direction:column;font-size:12px;color:var(--sub);gap:4px}
+.setgrid input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+.setgrid input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent2)}
+@media(max-width:640px){.setgrid{grid-template-columns:1fr}}
+.drop{border:2px dashed #cfc6b4;border-radius:12px;padding:30px 20px;text-align:center;
+  background:#fbf9f3;transition:.15s;cursor:pointer}
+.drop.hot{border-color:var(--accent);background:var(--accent2)}
+.drop b{color:var(--accent)}
+.drop small{color:var(--sub);display:block;margin-top:6px}
+.files{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.frow{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;
+  background:var(--chip);border-radius:9px}
+.tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;color:#fff;flex:none}
+.tag.AMAZON{background:#e08a1e}.tag.YAHOO{background:#c0392b}.tag.BASE{background:#3a6ea5}.tag.UNKNOWN{background:#999}
+.frow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frow .x{color:var(--sub);cursor:pointer;font-size:16px;flex:none}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+button{font:inherit;border:0;border-radius:10px;padding:11px 18px;cursor:pointer;font-weight:600}
+.primary{background:var(--accent);color:#fff}
+.primary:disabled{background:#bcc6c2;cursor:not-allowed}
+.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.ghost.sm{padding:7px 12px;font-size:12px;margin-top:12px}
+.opts{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--sub)}
+.opts label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.summary{font-size:14px;margin:0 0 4px}
+.summary b{color:var(--accent);font-size:18px}
+.note{font-size:12px;color:var(--sub);margin-top:4px}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:14px;max-height:62vh}
+table{border-collapse:collapse;font-size:12px;white-space:nowrap;min-width:100%}
+th,td{border-bottom:1px solid var(--line);border-right:1px solid #f0ebe0;padding:6px 9px;text-align:left}
+th{position:sticky;top:0;background:#efe9dc;font-weight:700;z-index:2}
+tr:nth-child(even) td{background:#fbf9f3}
+td[contenteditable]{outline:none}
+td[contenteditable]:focus{background:#fffbe6;box-shadow:inset 0 0 0 2px var(--accent)}
+td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
+.chan{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;color:#fff}
+.empty{color:#c9c1b2}
+.hide{display:none}
+.hint{font-size:12px;color:var(--sub);margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+.hint code{background:#efe9dc;padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ヤマトB2 伝票変換ツール</h1>
+    <p>Amazon・Yahoo!・自社ショップの注文ファイルを、ヤマトB2クラウド取り込み用CSVに変換します（インストール／マクロ不要）</p>
+  </header>
+
+  <details class="card" id="settingsCard">
+    <summary>ご依頼主・固定値の設定（出力CSVの全行に共通で入ります）</summary>
+    <div class="setgrid">
+      <label>ご依頼主名<input id="setName" autocomplete="off"></label>
+      <label>ご依頼主電話番号<input id="setTel" autocomplete="off"></label>
+      <label>ご依頼主郵便番号<input id="setZip" autocomplete="off"></label>
+      <label>ご依頼主住所<input id="setAddr" autocomplete="off"></label>
+      <label>請求先顧客コード<input id="setBill" autocomplete="off"></label>
+      <label>運賃管理番号<input id="setFreight" autocomplete="off"></label>
+    </div>
+    <div class="note">初期値はサンプル（ZAZOO）です。ご自身の値に変更できます。入力内容はこのブラウザ内（localStorage）にのみ保存され、外部には送信されません。</div>
+    <button class="ghost sm" id="setReset" type="button">初期値（ZAZOO）に戻す</button>
+  </details>
+
+  <div class="card">
+    <div class="drop" id="drop">
+      <b>ここにファイルをドラッグ＆ドロップ</b> もしくはクリックして選択
+      <small>Amazonの .txt ／ Yahooの .csv ／ 自社ショップの .csv（複数まとめてOK・種類は自動判別）</small>
+      <input type="file" id="file" multiple accept=".txt,.csv" class="hide">
+    </div>
+    <div class="files" id="files"></div>
+    <div class="opts">
+      <label><input type="checkbox" id="optHeader"> ヘッダー行を付ける</label>
+      <label><input type="checkbox" id="optAbbr" checked> 品名を略号化（アダルト→A／ピンク→P）</label>
+      <label><input type="checkbox" id="optMerge" checked> 同一宛先を1伝票にまとめる</label>
+      <label><input type="checkbox" id="optStrip" checked> 住所・建物名のスペースを詰める</label>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="run" disabled>変換する</button>
+      <button class="ghost hide" id="dl">CSVをダウンロード（B2取り込み用）</button>
+      <button class="ghost hide" id="copy">クリップボードにコピー（テンプレに貼付）</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="result">
+    <p class="summary" id="sum"></p>
+    <p class="note">※ 赤いセルは要確認（建物名が16文字超／到着日が「最短日」など）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。</p>
+    <div class="tablewrap"><table id="tbl"></table></div>
+    <div class="hint">
+      取り込み手順：ヤマト B2クラウド →「送り状発行」→「外部データ取り込み」→ このCSVを選択。
+      文字コードは <code>Shift-JIS</code> で出力しています。従来どおりテンプレに貼り付ける場合は「コピー」を使ってください（タブ区切り）。
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== ヤマトB2 95列レイアウト =====
+const B2_HEADERS = ["お客様管理番号","送り状種類","クール区分","伝票番号","出荷予定日","お届け予定日","配達時間帯","お届け先コード","お届け先電話番号","お届け先電話番号枝番","お届け先郵便番号","お届け先住所","お届け先アパートマンション名","お届け先会社・部門１","お届け先会社・部門２","お届け先名","お届け先名(ｶﾅ)","敬称","ご依頼主コード","ご依頼主電話番号","ご依頼主電話番号枝番","ご依頼主郵便番号","ご依頼主住所","ご依頼主アパートマンション","ご依頼主名","ご依頼主名(ｶﾅ)","品名コード１","品名１","品名コード２","品名２","荷扱い１","荷扱い２","記事","ｺﾚｸﾄ代金引換額","内消費税額等","止置き","営業所コード","発行枚数","個数口表示フラグ","請求先顧客コード","請求先分類コード","運賃管理番号","クロネコwebコレクトデータ登録","クロネコwebコレクト加盟店番号","クロネコwebコレクト申込受付番号１","クロネコwebコレクト申込受付番号２","クロネコwebコレクト申込受付番号３","お届け予定ｅメール利用区分","お届け予定ｅメールe-mailアドレス","入力機種","お届け予定ｅメールメッセージ","お届け完了ｅメール利用区分","お届け完了ｅメールe-mailアドレス","お届け完了ｅメールメッセージ","クロネコ収納代行利用区分","予備","収納代行請求金額","収納代行内消費税額等","収納代行請求先郵便番号","収納代行請求先住所","収納代行請求先住所2","収納代行請求先会社・部門名１","収納代行請求先会社・部門名２","収納代行請求先名漢字","収納代行請求先名カナ","収納代行問合せ先名漢字","収納代行問合せ先郵便番号","収納代行問合せ先住所","収納代行問合せ先住所2","収納代行問合せ先電話番号","収納代行管理番号","収納代行品名","収納代行備考","複数口くくりキー","検索キータイトル1","検索キー1","検索キータイトル2","検索キー2","検索キータイトル3","検索キー3","検索キータイトル4","検索キー4","検索キータイトル5","検索キー5","予備","予備","投函予定メール利用区分","投函予定メールe-mailアドレス","投函予定メールメッセージ","投函完了メール利用区分","投函完了メールe-mailアドレス","投函完了メールメッセージ","投函完了メール依頼主利用区分","投函完了メール依頼主e-mailアドレス","投函完了メール依頼主メッセージ"];
+const NCOL = 95;
+function colIdx(letter){let n=0;for(const c of letter)n=n*26+(c.charCodeAt(0)-64);return n-1;}
+
+// ===== ご依頼主・固定値（画面の入力欄から取得。初期値はサンプル＝ZAZOO） =====
+const SENDER_DEFAULTS={name:"ZAZOO",tel:"090-6373-7945",zip:"529-1603",addr:"滋賀県蒲生郡日野町大窪868",bill:"0748430620",freight:"01"};
+const SET_INPUTS={name:"setName",tel:"setTel",zip:"setZip",addr:"setAddr",bill:"setBill",freight:"setFreight"};
+const SET_STORE="yamatoB2_sender_v1";
+let SENDER={...SENDER_DEFAULTS}; // 変換時に getSettings() で更新
+
+// ===== ユーティリティ =====
+function decodeFile(buf){
+  const u8=new Uint8Array(buf);
+  let enc=Encoding.detect(u8); // UTF8 / SJIS / UTF16 ...
+  const uni=Encoding.convert(u8,{to:'UNICODE',from:enc});
+  return Encoding.codeToString(uni);
+}
+function splitLines(t){return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.length>0);}
+function parseDelim(line,delim){
+  const out=[];let cur="",q=false;
+  for(let i=0;i<line.length;i++){const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else { if(ch==='"')q=true; else if(ch===delim){out.push(cur);cur="";} else cur+=ch; }
+  }
+  out.push(cur);return out;
+}
+function detectChannel(text){
+  const head=splitLines(text)[0]||"";
+  if(head.includes("order-id")&&head.includes("\t")) return "AMAZON";
+  if(head.includes("OrderId")&&head.includes("ShipRequestDate")) return "YAHOO";
+  if(head.includes("注文ID")&&head.includes("配送先")) return "BASE";
+  return "UNKNOWN";
+}
+function todayJST(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());}
+function earliestShip(){ // 最短出荷日＝本日（締切による翌日繰り上げは行わない）
+  const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());
+}
+function fmt(d){return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate();}
+function parseISODate(s){const m=(s||"").match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);return m?new Date(+m[1],+m[2]-1,+m[3]):null;}
+function shipFrom(deliv){const floor=earliestShip();if(!deliv)return floor;const d=new Date(deliv);d.setDate(d.getDate()-2);return d<floor?floor:d;}
+function slot(text){const t=text||"";if(/08:00|0812/.test(t))return"0812";if(/14:00|1416/.test(t))return"1416";if(/16:00|1618/.test(t))return"1618";if(/18:00|1820/.test(t))return"1820";if(/19:00|1921/.test(t))return"1921";if(/^812$/.test(t.trim()))return"0812";const n=t.trim();if(/^\d{4}$/.test(n))return n;return"";}
+
+const BOILER=["ZAZOO","冷凍マウス","国産","真空個別包装","真空","個別包装","爬虫類","猛禽類","の 餌","の餌","餌","マウス","L1=","L2=","L3=","L4=","L5=","ステンレス弁当箱 小容量480ml STLB0","(有毛)","（有毛）"];
+function shortenName(name,abbr){
+  let s=name||"";
+  for(const w of BOILER)s=s.split(w).join(" ");
+  s=s.replace(/\d+(\.\d+)?\s*[gG]\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g," ");
+  s=s.replace(/\d+(\.\d+)?\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g," ");
+  s=s.replace(/約?\s*\d+(\.\d+)?\s*(cm|ｃｍ)/g," ");
+  s=s.replace(/\d+\s*匹/g," ");
+  if(abbr){s=s.split("アダルト").join("A").split("ピンク").join("P");}
+  s=s.replace(/[　 ]+/g," ").trim();
+  return s;
+}
+function setC(row,letter,v){row[colIdx(letter)]=(v==null?"":String(v));}
+function qtyNum(s){const m=String(s==null?"":s).replace(/^L\d+=/,"").match(/\d+/);return m?parseInt(m[0],10):1;}
+function normPhone(s){ // 国際表記 +81 を国内 0 に直す（ヤマトは+81でエラー）
+  let p=String(s==null?"":s).trim().replace(/^['’]/,"").replace(/[ 　]/g,"");
+  p=p.replace(/^(\+|＋)?81(?=\d)/,"0").replace(/[＋+]/g,"");
+  return p;
+}
+function fmtItem(it){if(!it||!it.name)return "";const q=(it.qty==null?1:it.qty);return (it.name+" "+q).replace(/\s+/g," ").trim();}
+let STRIP_SPACE=true;
+function stripSpaces(s){
+  if(!STRIP_SPACE||!s)return s;
+  const isDigit=c=>/[0-9０-９]/.test(c||"");
+  let out="",i=0;
+  while(i<s.length){
+    const ch=s[i];
+    if(ch===" "||ch==="　"||ch==="\t"){
+      let j=i;while(j<s.length&&(s[j]===" "||s[j]==="　"||s[j]==="\t"))j++;
+      const prev=out[out.length-1]||"",next=s[j]||"";
+      if(isDigit(prev)&&isDigit(next))out+="-"; // 数字どうしの間だけハイフン
+      i=j;
+    }else{out+=ch;i++;}
+  }
+  return out;
+}
+
+// ===== 1明細を1行(95列)に =====
+function buildRow(o){
+  const r=new Array(NCOL).fill("");
+  setC(r,"A",o.oid);
+  setC(r,"B",o.cod?2:0);
+  setC(r,"C",1);
+  const f=o.deliv?fmt(o.deliv):"最短日";
+  setC(r,"E",fmt(shipFrom(o.deliv)));
+  setC(r,"F",f);
+  setC(r,"G",o.slot);
+  setC(r,"I",normPhone(o.tel));
+  setC(r,"K",o.zip);
+  setC(r,"L",stripSpaces(o.addr));
+  setC(r,"M",stripSpaces(o.bldg));
+  setC(r,"P",o.name);
+  setC(r,"T",SENDER.tel);setC(r,"V",SENDER.zip);setC(r,"W",SENDER.addr);setC(r,"Y",SENDER.name);
+  {const its=o.items||[];
+   const total=its.reduce((s,it)=>s+(it.qty||1),0);
+   let n1="";
+   if(its.length===1)n1=its[0].name||"";                       // 1種: 略号名のみ
+   else if(its.length>=2)n1=its.map(it=>(it.name||"")+(it.qty||1)).join(""); // 2種以上: 略号+数量を連結
+   setC(r,"AB",n1);
+   if(its.length>=1)setC(r,"AD",String(total));}               // 品名2: 合計数量
+  setC(r,"AF","ナマモノ");
+  if(o.cod)setC(r,"AH",o.cod);
+  setC(r,"AN",SENDER.bill);setC(r,"AP",SENDER.freight);
+  setC(r,"AV","1");setC(r,"AW",o.email);
+  setC(r,"AY","お届け予定");setC(r,"AZ","1");setC(r,"BA",o.email);setC(r,"BB","お届け完了");
+  return r;
+}
+
+// ===== 各チャネル → 注文オブジェクト配列 =====
+function parseAmazon(text,abbr){
+  const lines=splitLines(text);const H={};parseDelim(lines[0],"\t").forEach((h,i)=>H[h.trim()]=i);
+  const g=(row,k)=>H[k]!=null?(row[H[k]]||"").trim():"";
+  const out=[];
+  for(let i=1;i<lines.length;i++){const row=parseDelim(lines[i],"\t");if(!g(row,"order-id"))continue;
+    const deliv=parseISODate(g(row,"scheduled-delivery-end-date"))||parseISODate(g(row,"scheduled-delivery-start-date"));
+    out.push({ch:"AMAZON",oid:g(row,"order-id"),tel:g(row,"buyer-phone-number"),
+      zip:g(row,"ship-postal-code"),
+      addr:g(row,"ship-state")+g(row,"ship-city")+g(row,"ship-address-1"),
+      bldg:(g(row,"ship-address-2")+g(row,"ship-address-3")).trim(),
+      name:g(row,"recipient-name"),deliv,
+      slot:slot(g(row,"scheduled-delivery-start-date")+g(row,"scheduled-delivery-end-date")),
+      item:shortenName(g(row,"product-name"),abbr),
+      items:[{name:shortenName(g(row,"product-name"),abbr),qty:qtyNum(g(row,"quantity-purchased")||g(row,"quantity-to-ship"))}],
+      cod:(g(row,"payment-method")==="COD")?(parseInt(g(row,"cod-collectible-amount")||"0",10)||0):0,
+      email:g(row,"buyer-email")});
+  }
+  return out;
+}
+function parseYahoo(text,abbr){
+  const lines=splitLines(text);const H={};parseDelim(lines[0],",").forEach((h,i)=>H[h.trim()]=i);
+  const g=(row,k)=>H[k]!=null?(row[H[k]]||"").trim():"";
+  const out=[];
+  for(let i=1;i<lines.length;i++){const row=parseDelim(lines[i],",");if(!g(row,"OrderId"))continue;
+    let item=g(row,"Title").replace(/^L\d+=/,"");
+    out.push({ch:"YAHOO",oid:g(row,"OrderId"),tel:g(row,"ShipPhoneNumber"),zip:g(row,"ShipZipCode"),
+      addr:g(row,"ShipPrefecture")+g(row,"ShipCity")+g(row,"ShipAddress1"),
+      bldg:g(row,"ShipAddress2"),name:g(row,"ShipName"),
+      deliv:parseISODate(g(row,"ShipRequestDate")),slot:slot(g(row,"ShipRequestTime")),
+      item:shortenName(item,abbr),
+      items:[{name:shortenName(item,abbr),qty:qtyNum(g(row,"QuantityDetail"))}],
+      cod:/代引/.test(g(row,"PayMethodName"))?(parseInt(g(row,"TotalPrice")||"0",10)||0):0,
+      email:g(row,"BillMailAddress")});
+  }
+  return out;
+}
+function parseBase(text,abbr){
+  const lines=splitLines(text);const H={};parseDelim(lines[0],",").forEach((h,i)=>H[h.trim()]=i);
+  const g=(row,k)=>H[k]!=null?(row[H[k]]||"").trim():"";
+  const out=[];
+  for(let i=1;i<lines.length;i++){const row=parseDelim(lines[i],",");if(!g(row,"注文ID"))continue;
+    const pref=g(row,"都道府県(配送先)")||g(row,"都道府県(請求先)");
+    const ad=g(row,"住所(配送先)")||g(row,"住所(請求先)");
+    const ad2=g(row,"住所2(配送先)")||g(row,"住所2(請求先)");
+    let addr,bldg;
+    if(ad2 && /^[0-9０-９\-ー－ｰ\s]+$/.test(ad2)){addr=pref+ad+ad2;bldg="";}
+    else{addr=pref+ad;bldg=ad2;}
+    out.push({ch:"BASE",oid:g(row,"注文ID"),
+      tel:g(row,"電話番号(配送先)")||g(row,"電話番号(請求先)"),
+      zip:g(row,"郵便番号(配送先)")||g(row,"郵便番号(請求先)"),addr,bldg,
+      name:((g(row,"氏(配送先)")+g(row,"名(配送先)")).trim())||((g(row,"氏(請求先)")+g(row,"名(請求先)")).trim()),
+      deliv:parseISODate(g(row,"配送日")),slot:slot(g(row,"配送時間帯")),
+      item:shortenName(g(row,"商品名"),abbr),
+      items:[{name:shortenName(g(row,"商品名"),abbr),qty:qtyNum(g(row,"数量"))}],
+      cod:/代引/.test(g(row,"支払い方法"))?(parseInt((g(row,"合計金額")||"").replace(/[^0-9]/g,"")||"0",10)||0):0,
+      email:g(row,"メールアドレス(請求先)")});
+  }
+  return out;
+}
+
+// ===== 同一宛先まとめ =====
+function norm(s){return (s||"").replace(/[\s　]/g,"");}
+function mergeOrders(list){
+  const used=new Array(list.length).fill(false);const res=[];
+  for(let i=0;i<list.length;i++){if(used[i])continue;const base={...list[i]};
+    let items=(list[i].items||[]).map(x=>({...x}));const ords=[list[i].oid];
+    for(let j=i+1;j<list.length;j++){if(used[j])continue;const a=list[i],b=list[j];
+      const same=norm(a.zip)===norm(b.zip)&&norm(a.addr)===norm(b.addr)&&norm(a.bldg)===norm(b.bldg)
+        &&norm(a.name)===norm(b.name)&&norm(a.tel)===norm(b.tel)
+        &&fmt(a.deliv||todayJST())===fmt(b.deliv||todayJST());
+      if(same){used[j]=true;(b.items||[]).forEach(x=>items.push({...x}));ords.push(b.oid);if(b.cod)base.cod=(base.cod||0)+b.cod;}
+    }
+    const agg=[];items.forEach(it=>{const f=agg.find(a=>a.name===it.name);if(f)f.qty+=(it.qty||1);else agg.push({...it});});
+    base.items=agg;base._orders=ords;used[i]=true;res.push(base);
+  }
+  return res;
+}
+
+// ===== 状態 =====
+let loaded=[]; // {name, channel, orders}
+let rows=[];   // 95列配列
+let metaChan=[];
+
+const $=id=>document.getElementById(id);
+
+// ===== ご依頼主・固定値の入力欄（localStorage 保存） =====
+function loadSettings(){
+  let saved={};try{saved=JSON.parse(localStorage.getItem(SET_STORE)||"{}");}catch(e){saved={};}
+  const v={...SENDER_DEFAULTS,...saved};
+  for(const k in SET_INPUTS)$(SET_INPUTS[k]).value=(v[k]!=null?v[k]:"");
+}
+function getSettings(){
+  const v={};for(const k in SET_INPUTS)v[k]=$(SET_INPUTS[k]).value.trim();
+  try{localStorage.setItem(SET_STORE,JSON.stringify(v));}catch(e){}
+  return v;
+}
+for(const k in SET_INPUTS){$(SET_INPUTS[k]).addEventListener("change",getSettings);}
+$("setReset").onclick=()=>{for(const k in SET_INPUTS)$(SET_INPUTS[k]).value=SENDER_DEFAULTS[k];getSettings();};
+loadSettings();
+
+const drop=$("drop"),fileInput=$("file");
+drop.onclick=()=>fileInput.click();
+["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("hot");}));
+["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("hot");}));
+drop.addEventListener("drop",ev=>handleFiles(ev.dataTransfer.files));
+fileInput.onchange=()=>handleFiles(fileInput.files);
+
+function handleFiles(fl){
+  [...fl].forEach(f=>{const rd=new FileReader();
+    rd.onload=()=>{const text=decodeFile(rd.result);const ch=detectChannel(text);
+      let orders=[];
+      try{
+        if(ch==="AMAZON")orders=parseAmazon(text,$("optAbbr").checked);
+        else if(ch==="YAHOO")orders=parseYahoo(text,$("optAbbr").checked);
+        else if(ch==="BASE")orders=parseBase(text,$("optAbbr").checked);
+      }catch(e){console.error(e);}
+      loaded.push({name:f.name,channel:ch,text,orders});
+      renderFiles();
+    };
+    rd.readAsArrayBuffer(f);
+  });
+}
+function renderFiles(){
+  $("files").innerHTML=loaded.map((f,i)=>`<div class="frow">
+    <span class="tag ${f.channel}">${f.channel}</span>
+    <span class="nm">${f.name}　<span style="color:var(--sub)">（${f.orders.length}明細）</span></span>
+    <span class="x" onclick="removeFile(${i})">×</span></div>`).join("");
+  $("run").disabled=loaded.filter(f=>f.channel!=="UNKNOWN").length===0;
+}
+function removeFile(i){loaded.splice(i,1);renderFiles();}
+
+$("optAbbr").onchange=()=>{ // 再パース
+  loaded.forEach(f=>{
+    if(f.channel==="AMAZON")f.orders=parseAmazon(f.text,$("optAbbr").checked);
+    else if(f.channel==="YAHOO")f.orders=parseYahoo(f.text,$("optAbbr").checked);
+    else if(f.channel==="BASE")f.orders=parseBase(f.text,$("optAbbr").checked);
+  });
+  renderFiles();
+};
+
+$("run").onclick=()=>{
+  STRIP_SPACE=$("optStrip").checked;
+  SENDER=getSettings();
+  let all=[];loaded.forEach(f=>{if(f.channel!=="UNKNOWN")all=all.concat(f.orders.map(o=>({...o})));});
+  const merged=$("optMerge").checked?mergeOrders(all):all;
+  rows=merged.map(buildRow);metaChan=merged.map(o=>o.ch);
+  renderTable(merged.length,all.length);
+  $("result").classList.remove("hide");$("dl").classList.remove("hide");$("copy").classList.remove("hide");
+};
+
+function zenLen(s){let n=0;for(const c of s)n+=(c.charCodeAt(0)>0xff?1:0.5);return n;} // 全角=1,半角=0.5（B2は全角16字）
+function renderTable(nShip,nLine){
+  $("sum").innerHTML=`取り込み件数：<b>${nLine}</b> 明細 → <b>${nShip}</b> 伝票`;
+  const show=[["",""],["A","管理番号"],["B","種類"],["C","ｸｰﾙ"],["E","出荷日"],["F","お届け日"],["G","時間"],["I","電話"],["K","〒"],["L","お届け先住所"],["M","建物名"],["P","お届け先"],["AB","品名1"],["AD","品名2"],["AH","代引額"],["AW","メール"]];
+  let html="<thead><tr>"+show.map(([c,l])=>`<th>${l||"区分"}</th>`).join("")+"</tr></thead><tbody>";
+  rows.forEach((r,ri)=>{
+    html+="<tr>";
+    show.forEach(([c,l])=>{
+      if(c===""){const ch=metaChan[ri];const color={AMAZON:"#e08a1e",YAHOO:"#c0392b",BASE:"#3a6ea5"}[ch]||"#999";
+        html+=`<td><span class="chan" style="background:${color}">${ch}</span></td>`;return;}
+      const v=r[colIdx(c)];let cls="";
+      if(c==="M"&&zenLen(v)>16)cls="warn";
+      if((c==="F")&&v==="最短日")cls="warn";
+      html+=`<td contenteditable data-row="${ri}" data-col="${c}" class="${cls}">${v?escapeHtml(v):'<span class="empty">—</span>'}</td>`;
+    });
+    html+="</tr>";
+  });
+  html+="</tbody>";$("tbl").innerHTML=html;
+  $("tbl").querySelectorAll("td[contenteditable]").forEach(td=>{
+    td.addEventListener("input",()=>{const ri=+td.dataset.row,c=td.dataset.col;
+      rows[ri][colIdx(c)]=td.innerText.replace(/—/g,"").trim();});
+  });
+}
+function escapeHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+function buildCSV(){
+  const lines=[];
+  if($("optHeader").checked)lines.push(B2_HEADERS.map(csvCell).join(","));
+  rows.forEach(r=>lines.push(r.map(csvCell).join(",")));
+  return lines.join("\r\n");
+}
+function csvCell(v){v=v==null?"":String(v);return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+
+$("dl").onclick=()=>{
+  const csv=buildCSV();
+  const sjis=Encoding.convert(Encoding.stringToCode(csv),{to:'SJIS',from:'UNICODE'});
+  const blob=new Blob([new Uint8Array(sjis)],{type:"text/csv"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  const d=todayJST();a.download=`yamato_b2_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.csv`;
+  a.click();
+};
+$("copy").onclick=()=>{
+  // Excelに確実に展開させるため、プレーンテキストではなくHTMLの表としてコピーする。
+  // 各セルは文字列書式(mso-number-format:\@)・折り返しなしにし、貼り付け直後から全文表示させる。
+  const esc=s=>String(s).replace(/[\r\n]+/g," ").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  let html='<table>';
+  rows.forEach(r=>{
+    html+='<tr>'+r.map(c=>`<td style="mso-number-format:'\\@';white-space:nowrap;border:none">${esc(c)||'&nbsp;'}</td>`).join('')+'</tr>';
+  });
+  html+='</table>';
+  const div=document.createElement('div');
+  div.setAttribute('contenteditable','true');
+  div.style.cssText='position:fixed;left:-99999px;top:0;white-space:pre';
+  div.innerHTML=html;
+  document.body.appendChild(div);
+  const range=document.createRange();range.selectNodeContents(div);
+  const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);
+  let ok=false;
+  try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  sel.removeAllRanges();document.body.removeChild(div);
+  if(ok){$("copy").textContent="コピーしました ✓（テンプレに貼付）";
+    setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);}
+  else{
+    // フォールバック：HTMLが使えない環境では従来のタブ区切りテキスト
+    const tsv=rows.map(r=>r.map(c=>String(c).replace(/[\r\n]+/g," ")).join("\t")).join("\r\n");
+    navigator.clipboard.writeText(tsv).then(
+      ()=>{$("copy").textContent="コピーしました ✓";setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);},
+      ()=>alert("コピーに失敗しました。ブラウザの権限をご確認ください。"));
+  }
+};
+</script>
+</body>
+</html>
