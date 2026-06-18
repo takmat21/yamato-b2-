@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f4f1ea"/>
+  <rect x="56" y="56" width="1088" height="518" rx="28" fill="#fffdf8" stroke="#e4ded2" stroke-width="2"/>
+  <rect x="56" y="56" width="14" height="518" rx="7" fill="#1f6f5c"/>
+  <text x="120" y="230" font-size="66" font-weight="bold" fill="#2b2b29"
+        font-family="'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif">ヤマトB2 伝票変換ツール</text>
+  <text x="120" y="318" font-size="36" fill="#7a756c"
+        font-family="'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif">Amazon・Yahoo!・BASE の注文を</text>
+  <text x="120" y="372" font-size="36" fill="#7a756c"
+        font-family="'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif">ヤマトB2クラウド取り込み用CSVに無料変換</text>
+  <rect x="120" y="436" width="360" height="72" rx="14" fill="#1f6f5c"/>
+  <text x="300" y="484" font-size="32" font-weight="bold" fill="#ffffff" text-anchor="middle"
+        font-family="'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif">無料・インストール不要</text>
+</svg>

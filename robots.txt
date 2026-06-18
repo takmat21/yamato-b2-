@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://takmat21.github.io/yamato-b2-/sitemap.xml

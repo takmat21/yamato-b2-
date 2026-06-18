@@ -82,11 +82,23 @@ https://takmat21.github.io/yamato-b2-/
 
 ```
 .
-├── index.html              … 本体
+├── index.html              … 本体（SEOメタ・OGP・構造化データ込み）
 ├── vendor/
 │   └── encoding.min.js     … encoding-japanese v2.2.0（同梱）
+├── favicon.svg             … ファビコン
+├── og-image.svg            … SNSシェア用OGP画像
+├── robots.txt              … クローラ向け（sitemap参照）
+├── sitemap.xml             … サイトマップ
 └── README.md
 ```
+
+## SEO（検索対策）
+
+- `index.html` に title／meta description／keywords／canonical／Open Graph／Twitter Card／
+  構造化データ（JSON-LD・schema.org WebApplication）を設定済み。
+- `robots.txt`・`sitemap.xml` を同梱。
+- 公開後は **Google Search Console**（https://search.google.com/search-console）にサイトを登録し、
+  `sitemap.xml` を送信すると、インデックス登録が早まります（手順は下記）。
 
 ## 公開方法（GitHub Pages の有効化）
 

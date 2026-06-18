@@ -3,7 +3,45 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ヤマトB2 伝票変換ツール（ZAZOO）</title>
+<title>ヤマトB2 伝票変換ツール｜Amazon・Yahoo!・BASEの注文をB2クラウド取込CSVに無料変換</title>
+<meta name="description" content="Amazon・Yahoo!ショッピング・BASEの注文ファイルを、ヤマトB2クラウドの外部データ取り込み用CSV（95列）に無料で変換。インストール・マクロ不要、ブラウザだけで完結。注文データは外部に送信しません。">
+<meta name="keywords" content="ヤマトB2,B2クラウド,送り状,CSV変換,Amazon,Yahoo!ショッピング,BASE,注文 取り込み,ヤマト運輸,外部データ取り込み,伝票 変換,無料">
+<meta name="author" content="ZAZOO">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#1f6f5c">
+<link rel="canonical" href="https://takmat21.github.io/yamato-b2-/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+<!-- Open Graph (SNSシェア用) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ヤマトB2 伝票変換ツール">
+<meta property="og:title" content="ヤマトB2 伝票変換ツール｜Amazon・Yahoo!・BASEの注文をB2クラウド取込CSVに無料変換">
+<meta property="og:description" content="Amazon・Yahoo!・BASEの注文ファイルを、ヤマトB2クラウド取り込み用CSV（95列）に無料変換。インストール不要・ブラウザ完結・データ外部送信なし。">
+<meta property="og:url" content="https://takmat21.github.io/yamato-b2-/">
+<meta property="og:image" content="https://takmat21.github.io/yamato-b2-/og-image.svg">
+<meta property="og:locale" content="ja_JP">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ヤマトB2 伝票変換ツール｜B2クラウド取込CSVに無料変換">
+<meta name="twitter:description" content="Amazon・Yahoo!・BASEの注文をヤマトB2クラウド取り込み用CSVに無料変換。ブラウザ完結・データ外部送信なし。">
+<meta name="twitter:image" content="https://takmat21.github.io/yamato-b2-/og-image.svg">
+
+<!-- 構造化データ (JSON-LD / schema.org) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "ヤマトB2 伝票変換ツール",
+  "url": "https://takmat21.github.io/yamato-b2-/",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web (ブラウザ)",
+  "inLanguage": "ja",
+  "description": "Amazon・Yahoo!ショッピング・BASEの注文ファイルを、ヤマトB2クラウドの外部データ取り込み用CSV（95列）に変換する無料ツール。インストール不要・ブラウザ完結・注文データは外部送信なし。",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" },
+  "creator": { "@type": "Organization", "name": "ZAZOO" }
+}
+</script>
 <script src="vendor/encoding.min.js"></script>
 <style>
 :root{
@@ -164,6 +202,12 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
       <button class="ghost sm" id="copyBank" type="button">振込先をコピー</button>
     </div>
   </div>
+
+  <footer style="margin-top:28px;color:var(--sub);font-size:12px;line-height:1.9">
+    <h2 style="font-size:14px;color:var(--ink);margin:0 0 6px">このツールについて</h2>
+    <p style="margin:0 0 10px">「ヤマトB2 伝票変換ツール」は、Amazon・Yahoo!ショッピング・BASE（自社ショップ）の注文データを、ヤマト運輸「B2クラウド」の外部データ取り込み用CSV（95列レイアウト）に変換する無料のWebツールです。Excelマクロやアプリのインストールは不要で、ブラウザだけで動作します。読み込んだ注文データはお使いのブラウザ内だけで処理され、サーバーには送信されません。</p>
+    <p style="margin:0">主な機能：複数チャネルの自動判別／同一宛先の伝票統合／商品名の短縮ルール／住所のスペース整形／電話番号の +81→0 正規化／Shift-JIS CSV出力・コピー。送り状の外部データ取り込み作業を効率化します。</p>
+  </footer>
 </div>
 
 <script>
