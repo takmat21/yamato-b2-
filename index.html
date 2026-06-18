@@ -29,6 +29,11 @@ details.card[open]>summary::before{content:"▾ "}
 .setgrid input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
 .setgrid input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent2)}
 @media(max-width:640px){.setgrid{grid-template-columns:1fr}}
+.fld{display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:12px;color:var(--sub)}
+textarea{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);resize:vertical;min-height:84px;line-height:1.5}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent2)}
+.rulebox{background:#fbf9f3;border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-top:12px;font-size:12px;color:var(--sub)}
+.rulebox b{color:var(--ink)}
 .drop{border:2px dashed #cfc6b4;border-radius:12px;padding:30px 20px;text-align:center;
   background:#fbf9f3;transition:.15s;cursor:pointer}
 .drop.hot{border-color:var(--accent);background:var(--accent2)}
@@ -88,6 +93,21 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
     <button class="ghost sm" id="setReset" type="button">初期値（ZAZOO）に戻す</button>
   </details>
 
+  <details class="card" id="shortenCard">
+    <summary>② 商品名の短縮ルール（任意）</summary>
+    <div class="rulebox">
+      <b>文字数ルール</b>：ヤマトB2の「品名」は文字数に上限があります（目安：<b>品名1＝全角25文字以内</b>）。
+      長い商品名は自動で定型語・スペックを除いて短縮し、必要なら下の置換ルールでさらに置き換えできます。<br>
+      ・1種類のみ：品名1＝短縮名／品名2＝合計数量<br>
+      ・2種類以上：品名1＝「短縮名＋数量」を連結／品名2＝合計数量
+    </div>
+    <label class="fld">置換ルール（1行に1組。「元の語→短縮語」の形式で入力。例：<code>アダルト→A</code>）
+      <textarea id="shortenRules" placeholder="ホッパー→H&#10;ファジー→F&#10;リターナー→R" autocomplete="off"></textarea>
+    </label>
+    <div class="note">入力はこのブラウザに保存されます。上の「品名を略号化」がオンの場合、既定の置換（アダルト→A／ピンク→P）に加えてここの指定が適用されます。</div>
+    <button class="ghost sm" id="shortenReset" type="button">置換ルールをクリア</button>
+  </details>
+
   <div class="card">
     <div class="drop" id="drop">
       <b>ここにファイルをドラッグ＆ドロップ</b> もしくはクリックして選択
@@ -117,6 +137,17 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
       文字コードは <code>Shift-JIS</code> で出力しています。従来どおりテンプレに貼り付ける場合は「コピー」を使ってください（タブ区切り）。
     </div>
   </div>
+
+  <div class="card">
+    <div style="font-weight:600;font-size:14px">要望・フィードバック</div>
+    <label class="fld">改善のご要望・不具合・ご質問などをお寄せください（開発者にメールで届きます）
+      <textarea id="fbText" placeholder="例：◯◯チャネルにも対応してほしい／この商品名がうまく短縮されない 等" autocomplete="off"></textarea>
+    </label>
+    <div class="btnrow">
+      <button class="primary" id="fbSend" type="button">メールで送信</button>
+    </div>
+    <div class="note">「送信」を押すとメールソフトが開き、本文に入力内容が入ります。そのまま送信してください。</div>
+  </div>
 </div>
 
 <script>
@@ -129,6 +160,7 @@ function colIdx(letter){let n=0;for(const c of letter)n=n*26+(c.charCodeAt(0)-64
 const SENDER_DEFAULTS={name:"ZAZOO",tel:"090-6373-7945",zip:"529-1603",addr:"滋賀県蒲生郡日野町大窪868",bill:"0748430620",freight:"01"};
 const SET_INPUTS={name:"setName",tel:"setTel",zip:"setZip",addr:"setAddr",bill:"setBill",freight:"setFreight"};
 const SET_STORE="yamatoB2_sender_v1";
+const SHORTEN_STORE="yamatoB2_shorten_v1";
 let SENDER={...SENDER_DEFAULTS}; // 変換時に getSettings() で更新
 
 // ===== ユーティリティ =====
@@ -164,8 +196,10 @@ function shipFrom(deliv){const floor=earliestShip();if(!deliv)return floor;const
 function slot(text){const t=text||"";if(/08:00|0812/.test(t))return"0812";if(/14:00|1416/.test(t))return"1416";if(/16:00|1618/.test(t))return"1618";if(/18:00|1820/.test(t))return"1820";if(/19:00|1921/.test(t))return"1921";if(/^812$/.test(t.trim()))return"0812";const n=t.trim();if(/^\d{4}$/.test(n))return n;return"";}
 
 const BOILER=["ZAZOO","冷凍マウス","国産","真空個別包装","真空","個別包装","爬虫類","猛禽類","の 餌","の餌","餌","マウス","L1=","L2=","L3=","L4=","L5=","ステンレス弁当箱 小容量480ml STLB0","(有毛)","（有毛）"];
+let CUSTOM_SHORTEN=[]; // ユーザー指定の置換ルール [元の語, 短縮語]
 function shortenName(name,abbr){
   let s=name||"";
+  for(const [from,to] of CUSTOM_SHORTEN){if(from)s=s.split(from).join(to);}
   for(const w of BOILER)s=s.split(w).join(" ");
   s=s.replace(/\d+(\.\d+)?\s*[gG]\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g," ");
   s=s.replace(/\d+(\.\d+)?\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g," ");
@@ -338,6 +372,33 @@ for(const k in SET_INPUTS){$(SET_INPUTS[k]).addEventListener("change",getSetting
 $("setReset").onclick=()=>{for(const k in SET_INPUTS)$(SET_INPUTS[k]).value=SENDER_DEFAULTS[k];getSettings();};
 loadSettings();
 
+// ===== 商品名の短縮ルール（localStorage 保存） =====
+function parseCustomRules(){
+  CUSTOM_SHORTEN=($("shortenRules").value||"").split(/\r?\n/).map(line=>{
+    const p=line.split(/→|->|\t|,/);
+    if(p.length>=2){const from=p[0].trim();const to=p.slice(1).join("").trim();if(from)return[from,to];}
+    return null;
+  }).filter(Boolean);
+}
+function loadCustomRules(){
+  let txt="";try{txt=localStorage.getItem(SHORTEN_STORE)||"";}catch(e){txt="";}
+  $("shortenRules").value=txt;parseCustomRules();
+}
+$("shortenRules").addEventListener("input",()=>{
+  try{localStorage.setItem(SHORTEN_STORE,$("shortenRules").value);}catch(e){}
+  parseCustomRules();reparseAll();
+});
+$("shortenReset").onclick=()=>{$("shortenRules").value="";try{localStorage.removeItem(SHORTEN_STORE);}catch(e){}parseCustomRules();reparseAll();};
+loadCustomRules();
+
+// ===== 要望・フィードバック（mailtoで送信） =====
+$("fbSend").onclick=()=>{
+  const body=($("fbText").value||"").trim();
+  if(!body){alert("ご要望・フィードバックの内容を入力してください。");return;}
+  const subject="ヤマトB2 伝票変換ツール 要望・フィードバック";
+  location.href="mailto:takmat21@gmail.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+};
+
 const drop=$("drop"),fileInput=$("file");
 drop.onclick=()=>fileInput.click();
 ["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("hot");}));
@@ -369,14 +430,15 @@ function renderFiles(){
 }
 function removeFile(i){loaded.splice(i,1);renderFiles();}
 
-$("optAbbr").onchange=()=>{ // 再パース
+function reparseAll(){ // オプション/短縮ルール変更時に読み込み済みファイルを再パース
   loaded.forEach(f=>{
     if(f.channel==="AMAZON")f.orders=parseAmazon(f.text,$("optAbbr").checked);
     else if(f.channel==="YAHOO")f.orders=parseYahoo(f.text,$("optAbbr").checked);
     else if(f.channel==="BASE")f.orders=parseBase(f.text,$("optAbbr").checked);
   });
   renderFiles();
-};
+}
+$("optAbbr").onchange=reparseAll;
 
 $("run").onclick=()=>{
   STRIP_SPACE=$("optStrip").checked;
