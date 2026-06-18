@@ -148,6 +148,22 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
     </div>
     <div class="note">「送信」を押すとメールソフトが開き、本文に入力内容が入ります。そのまま送信してください。</div>
   </div>
+
+  <div class="card">
+    <div style="font-weight:600;font-size:14px">☕ 寄付のお願い</div>
+    <p class="note" style="margin-top:8px">このツールは無料で公開しています。開発と維持の支えとして、よろしければ寄付（銀行振込）でご支援いただけると大変励みになります。</p>
+    <div class="rulebox">
+      <b>振込先</b><br>
+      銀行：楽天銀行<br>
+      支店：第四営業支店（254）<br>
+      種別：普通<br>
+      口座番号：7120844<br>
+      口座名義：ＺＡＺＯＵ　株式会社（ザズ－（カ）
+    </div>
+    <div class="btnrow">
+      <button class="ghost sm" id="copyBank" type="button">振込先をコピー</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -397,6 +413,14 @@ $("fbSend").onclick=()=>{
   if(!body){alert("ご要望・フィードバックの内容を入力してください。");return;}
   const subject="ヤマトB2 伝票変換ツール 要望・フィードバック";
   location.href="mailto:takmat21@gmail.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+};
+
+// ===== 寄付（振込先のコピー） =====
+$("copyBank").onclick=()=>{
+  const text="楽天銀行 第四営業支店（254） 普通 7120844 ＺＡＺＯＵ　株式会社（ザズ－（カ）";
+  navigator.clipboard.writeText(text).then(
+    ()=>{$("copyBank").textContent="コピーしました ✓";setTimeout(()=>$("copyBank").textContent="振込先をコピー",2000);},
+    ()=>alert("コピーに失敗しました。手入力でお願いします。\n"+text));
 };
 
 const drop=$("drop"),fileInput=$("file");
