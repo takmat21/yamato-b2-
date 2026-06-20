@@ -1,0 +1,21 @@
+{
+  "name": "yamato-b2-fulfillment",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ヤマトB2クラウドAPI × Amazon SP-API 全自動出荷バックエンド（雛形）",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "local": "tsx src/local.ts"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

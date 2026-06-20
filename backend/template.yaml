@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ヤマトB2クラウドAPI × Amazon SP-API 全自動出荷バックエンド（雛形）
+  定期実行で 受注取得→伝票発行→出荷通知 を行う。
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 120
+    MemorySize: 256
+    Architectures: [arm64]
+
+Parameters:
+  DryRun:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: trueの間は伝票発行・出荷通知を行わずログのみ
+
+Resources:
+  ProcessedTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: orderKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: orderKey
+          KeyType: HASH
+
+  FulfillmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: dist/handlers/fulfillment.handler
+      Environment:
+        Variables:
+          DRY_RUN: !Ref DryRun
+          PROCESSED_TABLE: !Ref ProcessedTable
+          # 認証情報は Secrets Manager / SSM 参照に置き換えること（下記は例）
+          # LWA_CLIENT_ID: "{{resolve:secretsmanager:yamato-b2/spapi:SecretString:clientId}}"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProcessedTable
+        # - SSMParameterReadPolicy / SecretsManager 読み取りポリシーを必要に応じて付与
+      Events:
+        Schedule:
+          Type: ScheduleV2
+          Properties:
+            # 15分ごとに実行（営業時間に絞る等は本番で調整）
+            ScheduleExpression: "rate(15 minutes)"
+
+Outputs:
+  FunctionName:
+    Value: !Ref FulfillmentFunction
+  ProcessedTableName:
+    Value: !Ref ProcessedTable

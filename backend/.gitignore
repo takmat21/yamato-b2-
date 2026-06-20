@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.aws-sam/
+*.log
+
+# 認証情報は絶対にコミットしない
+.env
+.env.*
+secrets.json
+*.pem
