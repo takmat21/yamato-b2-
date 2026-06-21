@@ -583,34 +583,48 @@ $("dl").onclick=()=>{
   const d=todayJST();a.download=`yamato_b2_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.csv`;
   a.click();
 };
-$("copy").onclick=()=>{
-  // Excelに確実に展開させるため、プレーンテキストではなくHTMLの表としてコピーする。
-  // 各セルは文字列書式(mso-number-format:\@)・折り返しなしにし、貼り付け直後から全文表示させる。
+function copyDone(){$("copy").textContent="コピーしました ✓（テンプレに貼付）";
+  setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);}
+$("copy").onclick=async()=>{
+  // Excelに貼った時に日付がシリアル値(例:46194)へ変換されるのを防ぐため、
+  // プレーンテキストではなく「各セルを文字列書式(mso-number-format:\@)に固定したHTMLの表」を
+  // クリップボードへ置く。これによりExcelは値を文字列として受け取り、「2026/6/19」のまま貼り付く。
   const esc=s=>String(s).replace(/[\r\n]+/g," ").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   let html='<table>';
   rows.forEach(r=>{
     html+='<tr>'+r.map(c=>`<td style="mso-number-format:'\\@';white-space:nowrap;border:none">${esc(c)||'&nbsp;'}</td>`).join('')+'</tr>';
   });
   html+='</table>';
-  const div=document.createElement('div');
-  div.setAttribute('contenteditable','true');
-  div.style.cssText='position:fixed;left:-99999px;top:0;white-space:pre';
-  div.innerHTML=html;
-  document.body.appendChild(div);
-  const range=document.createRange();range.selectNodeContents(div);
-  const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);
-  let ok=false;
-  try{ok=document.execCommand('copy');}catch(e){ok=false;}
-  sel.removeAllRanges();document.body.removeChild(div);
-  if(ok){$("copy").textContent="コピーしました ✓（テンプレに貼付）";
-    setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);}
-  else{
-    // フォールバック：HTMLが使えない環境では従来のタブ区切りテキスト
-    const tsv=rows.map(r=>r.map(c=>String(c).replace(/[\r\n]+/g," ")).join("\t")).join("\r\n");
-    navigator.clipboard.writeText(tsv).then(
-      ()=>{$("copy").textContent="コピーしました ✓";setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);},
-      ()=>alert("コピーに失敗しました。ブラウザの権限をご確認ください。"));
-  }
+  const tsv=rows.map(r=>r.map(c=>String(c).replace(/[\r\n]+/g," ")).join("\t")).join("\r\n");
+
+  // ① 最新のClipboard API（text/htmlで文字列書式を保持）。execCommand非依存で確実。
+  try{
+    if(navigator.clipboard&&window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html":new Blob([html],{type:"text/html"}),
+        "text/plain":new Blob([tsv],{type:"text/plain"})
+      })]);
+      copyDone();return;
+    }
+  }catch(e){/* ②へフォールバック */}
+
+  // ② 旧ブラウザ向け：execCommandでHTMLをコピー
+  try{
+    const div=document.createElement('div');
+    div.setAttribute('contenteditable','true');
+    div.style.cssText='position:fixed;left:-99999px;top:0;white-space:pre';
+    div.innerHTML=html;
+    document.body.appendChild(div);
+    const range=document.createRange();range.selectNodeContents(div);
+    const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);
+    const ok=document.execCommand('copy');
+    sel.removeAllRanges();document.body.removeChild(div);
+    if(ok){copyDone();return;}
+  }catch(e){/* ③へ */}
+
+  // ③ 最終フォールバック：プレーンテキスト（※この場合のみExcelが日付を変換する可能性あり）
+  navigator.clipboard.writeText(tsv).then(copyDone,
+    ()=>alert("コピーに失敗しました。ブラウザの権限をご確認ください。"));
 };
 </script>
 </body>
