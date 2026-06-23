@@ -275,6 +275,25 @@ function shortenName(name,abbr){
 }
 function setC(row,letter,v){row[colIdx(letter)]=(v==null?"":String(v));}
 function qtyNum(s){const m=String(s==null?"":s).replace(/^L\d+=/,"").match(/\d+/);return m?parseInt(m[0],10):1;}
+// Yahoo等の「L1=商品A&L2=商品B」形式を商品ごとに分解する
+function splitLfield(s){
+  s=String(s==null?"":s);
+  const re=/L(\d+)=/g;const marks=[];let m;
+  while((m=re.exec(s))!==null)marks.push({n:+m[1],start:m.index,vstart:re.lastIndex});
+  if(!marks.length)return [{n:0,v:s.trim()}]; // マーカー無し＝単品
+  const res=[];
+  for(let i=0;i<marks.length;i++){
+    const end=(i+1<marks.length)?marks[i+1].start:s.length;
+    let v=s.slice(marks[i].vstart,end).replace(/&\s*$/,"").trim();
+    res.push({n:marks[i].n,v});
+  }
+  return res;
+}
+function splitLItems(title,qtyField,abbr){ // 商品名と数量を対応付けて items[] を作る
+  const titles=splitLfield(title);
+  const qmap={};splitLfield(qtyField).forEach(q=>{qmap[q.n]=qtyNum(q.v);});
+  return titles.map(t=>({name:shortenName(t.v,abbr),qty:(qmap[t.n]!=null?qmap[t.n]:qtyNum(qtyField))}));
+}
 function normPhone(s){ // 国際表記 +81 を国内 0 に直す（ヤマトは+81でエラー）
   let p=String(s==null?"":s).trim().replace(/^['’]/,"").replace(/[ 　]/g,"");
   p=p.replace(/^(\+|＋)?81(?=\d)/,"0").replace(/[＋+]/g,"");
@@ -360,13 +379,11 @@ function parseYahoo(text,abbr){
   const g=(row,k)=>H[k]!=null?(row[H[k]]||"").trim():"";
   const out=[];
   for(let i=1;i<lines.length;i++){const row=parseDelim(lines[i],",");if(!g(row,"OrderId"))continue;
-    let item=g(row,"Title").replace(/^L\d+=/,"");
     out.push({ch:"YAHOO",oid:g(row,"OrderId"),tel:g(row,"ShipPhoneNumber"),zip:g(row,"ShipZipCode"),
       addr:g(row,"ShipPrefecture")+g(row,"ShipCity")+g(row,"ShipAddress1"),
       bldg:g(row,"ShipAddress2"),name:g(row,"ShipName"),
       deliv:parseISODate(g(row,"ShipRequestDate")),slot:slot(g(row,"ShipRequestTime")),
-      item:shortenName(item,abbr),
-      items:[{name:shortenName(item,abbr),qty:qtyNum(g(row,"QuantityDetail"))}],
+      items:splitLItems(g(row,"Title"),g(row,"QuantityDetail"),abbr), // L1=…&L2=… を分解
       cod:/代引/.test(g(row,"PayMethodName"))?(parseInt(g(row,"TotalPrice")||"0",10)||0):0,
       email:g(row,"BillMailAddress")});
   }
