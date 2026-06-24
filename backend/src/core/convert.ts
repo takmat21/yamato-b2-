@@ -61,8 +61,10 @@ export function shortenName(name: string, abbr = true, custom: ShortenRule[] = [
   let s = name || "";
   for (const [from, to] of custom) { if (from) s = s.split(from).join(to); }
   for (const w of BOILER) s = s.split(w).join(" ");
-  s = s.replace(/\d+(\.\d+)?\s*[gG]\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g, " ");
-  s = s.replace(/\d+(\.\d+)?\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g, " ");
+  s = s.replace(/\d+(\.\d+)?\s*[gG]\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g, " "); // 27g～33g
+  s = s.replace(/\d+(\.\d+)?\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g, " ");         // 27～33g
+  s = s.replace(/[~～]\s*\d+(\.\d+)?\s*[gG]/g, " ");                       // ～33g
+  s = s.replace(/\d+(\.\d+)?\s*[gG]\s*[~～]?/g, " ");                      // 33g～ / 33g
   s = s.replace(/約?\s*\d+(\.\d+)?\s*(cm|ｃｍ)/g, " ");
   s = s.replace(/\d+\s*匹/g, " ");
   if (abbr) { s = s.split("アダルト").join("A").split("ピンク").join("P"); }
