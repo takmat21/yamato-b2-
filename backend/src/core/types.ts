@@ -55,6 +55,6 @@ export const SENDER_DEFAULTS: SenderConfig = {
   zip: "529-1603",
   addr: "滋賀県蒲生郡日野町大窪868",
   bill: "0748430620",
-  cls: "01",
+  cls: "001",
   freight: "01",
 };

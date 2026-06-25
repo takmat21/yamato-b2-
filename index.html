@@ -222,7 +222,7 @@ const NCOL = 95;
 function colIdx(letter){let n=0;for(const c of letter)n=n*26+(c.charCodeAt(0)-64);return n-1;}
 
 // ===== ご依頼主・固定値（画面の入力欄から取得。初期値はサンプル＝ZAZOO） =====
-const SENDER_DEFAULTS={name:"ZAZOO",tel:"090-6373-7945",zip:"529-1603",addr:"滋賀県蒲生郡日野町大窪868",bill:"0748430620",cls:"01",freight:"01"};
+const SENDER_DEFAULTS={name:"ZAZOO",tel:"090-6373-7945",zip:"529-1603",addr:"滋賀県蒲生郡日野町大窪868",bill:"0748430620",cls:"001",freight:"01"};
 const SET_INPUTS={name:"setName",tel:"setTel",zip:"setZip",addr:"setAddr",bill:"setBill",cls:"setCls",freight:"setFreight"};
 const SET_STORE="yamatoB2_sender_v1";
 const SHORTEN_STORE="yamatoB2_shorten_v1";
