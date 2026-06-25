@@ -53,6 +53,7 @@ export function loadConfig(): AppConfig {
     zip: env("SENDER_ZIP") || SENDER_DEFAULTS.zip,
     addr: env("SENDER_ADDR") || SENDER_DEFAULTS.addr,
     bill: env("SENDER_BILL") || SENDER_DEFAULTS.bill,
+    cls: env("SENDER_CLASS") || SENDER_DEFAULTS.cls,
     freight: env("SENDER_FREIGHT") || SENDER_DEFAULTS.freight,
   };
 

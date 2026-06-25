@@ -134,7 +134,7 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
 
   setC(r, "AF", "ナマモノ");
   if (o.cod) setC(r, "AH", o.cod);
-  setC(r, "AN", sender.bill); setC(r, "AP", sender.freight);
+  setC(r, "AN", sender.bill); setC(r, "AO", sender.cls); setC(r, "AP", sender.freight);
 
   if (o.ch === "AMAZON") {
     // Amazonは Amazon/ヤマト側が配送通知を行う。直送メール拒否のお客様が多いため送らない。

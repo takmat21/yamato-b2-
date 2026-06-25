@@ -32,6 +32,7 @@ export interface SenderConfig {
   zip: string;
   addr: string;
   bill: string; // 請求先顧客コード
+  cls: string; // 請求先分類コード
   freight: string; // 運賃管理番号
 }
 
@@ -54,5 +55,6 @@ export const SENDER_DEFAULTS: SenderConfig = {
   zip: "529-1603",
   addr: "滋賀県蒲生郡日野町大窪868",
   bill: "0748430620",
+  cls: "01",
   freight: "01",
 };

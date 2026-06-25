@@ -125,6 +125,7 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
       <label>ご依頼主郵便番号<input id="setZip" autocomplete="off"></label>
       <label>ご依頼主住所<input id="setAddr" autocomplete="off"></label>
       <label>請求先顧客コード<input id="setBill" autocomplete="off"></label>
+      <label>請求先分類コード<input id="setCls" autocomplete="off"></label>
       <label>運賃管理番号<input id="setFreight" autocomplete="off"></label>
     </div>
     <div class="note">初期値はサンプル（ZAZOO）です。ご自身の値に変更できます。入力内容はこのブラウザ内（localStorage）にのみ保存され、外部には送信されません。</div>
@@ -221,8 +222,8 @@ const NCOL = 95;
 function colIdx(letter){let n=0;for(const c of letter)n=n*26+(c.charCodeAt(0)-64);return n-1;}
 
 // ===== ご依頼主・固定値（画面の入力欄から取得。初期値はサンプル＝ZAZOO） =====
-const SENDER_DEFAULTS={name:"ZAZOO",tel:"090-6373-7945",zip:"529-1603",addr:"滋賀県蒲生郡日野町大窪868",bill:"0748430620",freight:"01"};
-const SET_INPUTS={name:"setName",tel:"setTel",zip:"setZip",addr:"setAddr",bill:"setBill",freight:"setFreight"};
+const SENDER_DEFAULTS={name:"ZAZOO",tel:"090-6373-7945",zip:"529-1603",addr:"滋賀県蒲生郡日野町大窪868",bill:"0748430620",cls:"01",freight:"01"};
+const SET_INPUTS={name:"setName",tel:"setTel",zip:"setZip",addr:"setAddr",bill:"setBill",cls:"setCls",freight:"setFreight"};
 const SET_STORE="yamatoB2_sender_v1";
 const SHORTEN_STORE="yamatoB2_shorten_v1";
 let SENDER={...SENDER_DEFAULTS}; // 変換時に getSettings() で更新
@@ -369,7 +370,7 @@ function buildRow(o){
    if(its.length>=1)setC(r,"AD",String(total));}               // 品名2: 合計数量
   setC(r,"AF","ナマモノ");
   if(o.cod)setC(r,"AH",o.cod);
-  setC(r,"AN",SENDER.bill);setC(r,"AP",SENDER.freight);
+  setC(r,"AN",SENDER.bill);setC(r,"AO",SENDER.cls);setC(r,"AP",SENDER.freight);
   if(o.ch==="AMAZON"){
     // AmazonはAmazon/ヤマト側が配送通知を行う。出荷元からの直送メールを受信拒否に
     // しているお客様が多いため、お届け予定/完了メールは送らない（利用区分=0）。
