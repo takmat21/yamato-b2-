@@ -228,11 +228,36 @@ const SHORTEN_STORE="yamatoB2_shorten_v1";
 let SENDER={...SENDER_DEFAULTS}; // 変換時に getSettings() で更新
 
 // ===== ユーティリティ =====
+function decFrom(u8,enc){
+  try{return Encoding.codeToString(Encoding.convert(u8,{to:'UNICODE',from:enc}));}catch(e){return null;}
+}
+// デコード結果の「もっともらしさ」を採点（ASCII印字・日本語=加点／化け=減点）
+function textScore(s){
+  if(s==null)return -1e9;let good=0,bad=0;
+  for(const ch of s){const c=ch.codePointAt(0);
+    if(c===0x09||c===0x0A||c===0x0D)good++;
+    else if(c>=0x20&&c<=0x7E)good++;                                              // ASCII印字
+    else if((c>=0x3040&&c<=0x30FF)||(c>=0x4E00&&c<=0x9FFF)||(c>=0xFF61&&c<=0xFF9F))good++; // かな/カナ/漢字/半角カナ
+    else if(c>=0x3000&&c<=0x303F)good++;                                          // 全角記号
+    else bad++;                                                                   // それ以外は化け候補
+  }
+  return good-bad*5;
+}
+// 文字コードを自動判別（Encoding.detect任せにせず、候補を実デコードして最良を採用）
 function decodeFile(buf){
   const u8=new Uint8Array(buf);
-  let enc=Encoding.detect(u8); // UTF8 / SJIS / UTF16 ...
-  const uni=Encoding.convert(u8,{to:'UNICODE',from:enc});
-  return Encoding.codeToString(uni);
+  // BOM
+  if(u8[0]===0xEF&&u8[1]===0xBB&&u8[2]===0xBF)return decFrom(u8,'UTF8');
+  if(u8[0]===0xFF&&u8[1]===0xFE)return decFrom(u8,'UTF16LE');
+  if(u8[0]===0xFE&&u8[1]===0xFF)return decFrom(u8,'UTF16BE');
+  // NULバイトが多ければUTF-16LE（誤検出を避けるためBOM/NULでのみ採用）
+  let nul=0,lim=Math.min(u8.length,400);for(let i=0;i<lim;i++)if(u8[i]===0)nul++;
+  if(lim>0&&nul>lim*0.1)return decFrom(u8,'UTF16LE');
+  // 残りは UTF8 / SJIS / EUCJP を採点して最良を選ぶ
+  let best=null,bestScore=-Infinity;
+  for(const e of ['UTF8','SJIS','EUCJP']){const t=decFrom(u8,e);if(t==null)continue;
+    const sc=textScore(t);if(sc>bestScore){bestScore=sc;best=t;}}
+  return best!=null?best:decFrom(u8,'SJIS');
 }
 function splitLines(t){return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.length>0);}
 function parseDelim(line,delim){
