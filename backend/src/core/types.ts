@@ -49,12 +49,14 @@ export interface ConvertOptions {
   today?: Date;
 }
 
+// 個人情報（氏名・電話・住所・請求先顧客コード）はソースに持たせない。
+// 実運用では環境変数 SENDER_NAME / SENDER_TEL / SENDER_ZIP / SENDER_ADDR / SENDER_BILL で必ず指定すること。
 export const SENDER_DEFAULTS: SenderConfig = {
-  name: "ZAZOO",
-  tel: "090-6373-7945",
-  zip: "529-1603",
-  addr: "滋賀県蒲生郡日野町大窪868",
-  bill: "0748430620",
+  name: "",
+  tel: "",
+  zip: "",
+  addr: "",
+  bill: "",
   cls: "001",
   freight: "01",
 };
