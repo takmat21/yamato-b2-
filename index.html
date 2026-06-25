@@ -635,11 +635,19 @@ $("copy").onclick=async()=>{
   // プレーンテキストではなく「各セルを文字列書式(mso-number-format:\@)に固定したHTMLの表」を
   // クリップボードへ置く。これによりExcelは値を文字列として受け取り、「2026/6/19」のまま貼り付く。
   const esc=s=>String(s).replace(/[\r\n]+/g," ").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  let html='<table>';
+  // Excelは「Office/Excel名前空間」とXML宣言が無いとmso-number-format(文字列書式)を
+  // 無視して数値変換することがある(請求先顧客コードの先頭0が消える等)。名前空間+styleで確実に文字列固定。
+  const xlHead='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+    +'<head><meta charset="utf-8">'
+    +'<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'
+    +'<x:Name>B2</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'
+    +'</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'
+    +'<style>td{mso-number-format:"\\@";}</style></head><body>';
+  let html=xlHead+'<table>';
   rows.forEach(r=>{
     html+='<tr>'+r.map(c=>`<td style="mso-number-format:'\\@';white-space:nowrap;border:none">${esc(c)||'&nbsp;'}</td>`).join('')+'</tr>';
   });
-  html+='</table>';
+  html+='</table></body></html>';
   const tsv=rows.map(r=>r.map(c=>String(c).replace(/[\r\n]+/g," ")).join("\t")).join("\r\n");
 
   // ① 最新のClipboard API（text/htmlで文字列書式を保持）。execCommand非依存で確実。
