@@ -108,7 +108,7 @@ function setC(row: string[], letter: string, v: unknown): void {
 }
 
 /** 1注文 → 95列の1行 */
-export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today: Date = jstToday(), strip = true): string[] {
+export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today: Date = jstToday(), strip = true, blankBill = true): string[] {
   const r = new Array(NCOL).fill("");
   setC(r, "A", o.oid);
   setC(r, "B", o.cod ? 2 : 0);
@@ -134,7 +134,8 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
 
   setC(r, "AF", "ナマモノ");
   if (o.cod) setC(r, "AH", o.cod);
-  setC(r, "AN", sender.bill); setC(r, "AO", sender.cls); setC(r, "AP", sender.freight);
+  // 請求先を空欄で出力すると、B2取込時に既定の請求先が自動使用され「請求先が存在しません」エラーを回避できる。
+  if (!blankBill) { setC(r, "AN", sender.bill); setC(r, "AO", sender.cls); setC(r, "AP", sender.freight); }
 
   if (o.ch === "AMAZON") {
     // Amazonは Amazon/ヤマト側が配送通知を行う。直送メール拒否のお客様が多いため送らない。
@@ -190,6 +191,7 @@ export function mergeOrders(list: Order[], today: Date = jstToday()): Order[] {
 export function ordersToRows(orders: Order[], sender: SenderConfig = SENDER_DEFAULTS, opts: ConvertOptions = {}): string[][] {
   const today = opts.today ? jstToday(opts.today) : jstToday();
   const strip = opts.strip !== false;
+  const blankBill = opts.blankBill !== false;
   const merged = opts.merge === false ? orders : mergeOrders(orders, today);
-  return merged.map((o) => buildRow(o, sender, today, strip));
+  return merged.map((o) => buildRow(o, sender, today, strip, blankBill));
 }

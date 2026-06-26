@@ -44,6 +44,7 @@ export interface ConvertOptions {
   abbr?: boolean; // 略号化（アダルト→A 等）既定 true
   merge?: boolean; // 同一宛先統合 既定 true
   strip?: boolean; // 住所スペース詰め 既定 true
+  blankBill?: boolean; // 請求先3列を空欄で出力（B2の既定請求先を自動使用）既定 true
   customShorten?: ShortenRule[];
   /** 「本日」を固定したい場合（テスト用）。未指定なら現在のJST日付 */
   today?: Date;
