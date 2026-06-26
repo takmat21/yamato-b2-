@@ -644,9 +644,9 @@ $("dl").onclick=()=>{
 function copyDone(){$("copy").textContent="コピーしました ✓（テンプレに貼付）";
   setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);}
 $("copy").onclick=async()=>{
-  // Excelに貼った時に日付がシリアル値(例:46194)へ変換されるのを防ぐため、
-  // プレーンテキストではなく「各セルを文字列書式(mso-number-format:\@)に固定したHTMLの表」を
-  // クリップボードへ置く。これによりExcelは値を文字列として受け取り、「2026/6/19」のまま貼り付く。
+  // プレーンテキストで貼るとExcelが日付をシリアル値に変えたり、コードの先頭0を落とす。
+  // そこで各セルにmso-number-formatを指定したHTML表をクリップボードへ置く：
+  //  ・コード等は文字列書式(\@)で先頭0を保持／・日付列は日付書式で「本物の日付」として貼り付け。
   const esc=s=>String(s).replace(/[\r\n]+/g," ").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   // Excelは「Office/Excel名前空間」とXML宣言が無いとmso-number-format(文字列書式)を
   // 無視して数値変換することがある(請求先顧客コードの先頭0が消える等)。名前空間+styleで確実に文字列固定。
@@ -655,10 +655,16 @@ $("copy").onclick=async()=>{
     +'<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'
     +'<x:Name>B2</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'
     +'</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'
-    +'<style>td{mso-number-format:"\\@";}</style></head><body>';
+    +'</head><body>';
+  // 日付列(E:出荷予定日, F:お届け予定日)だけは日付書式にして「本物の日付」として貼り付ける。
+  // 残りは文字列書式(\@)で先頭ゼロ(顧客コード等)を保持。"最短日"等の文字列はそのまま文字列扱いになる。
+  const DATE_COLS=new Set([colIdx("E"),colIdx("F")]);
   let html=xlHead+'<table>';
   rows.forEach(r=>{
-    html+='<tr>'+r.map(c=>`<td style="mso-number-format:'\\@';white-space:nowrap;border:none">${esc(c)||'&nbsp;'}</td>`).join('')+'</tr>';
+    html+='<tr>'+r.map((c,ci)=>{
+      const nf=DATE_COLS.has(ci)?'yyyy\\/m\\/d':'\\@';
+      return `<td style="mso-number-format:'${nf}';white-space:nowrap;border:none">${esc(c)||'&nbsp;'}</td>`;
+    }).join('')+'</tr>';
   });
   html+='</table></body></html>';
   const tsv=rows.map(r=>r.map(c=>String(c).replace(/[\r\n]+/g," ")).join("\t")).join("\r\n");
