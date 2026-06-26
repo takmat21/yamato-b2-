@@ -159,7 +159,7 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
       <label><input type="checkbox" id="optAbbr" checked> 品名を略号化（アダルト→A／ピンク→P）</label>
       <label><input type="checkbox" id="optMerge" checked> 同一宛先を1伝票にまとめる</label>
       <label><input type="checkbox" id="optStrip" checked> 住所・建物名のスペースを詰める</label>
-      <label><input type="checkbox" id="optBlankBill" checked> 請求先を空欄で出力（B2の既定請求先を自動使用。取込時の請求先エラー回避）</label>
+      <label><input type="checkbox" id="optBlankBill"> 請求先を空欄で出力（B2の既定請求先を自動使用。取込時の請求先エラー回避）</label>
       <label><input type="checkbox" id="optToday"> 出荷予定日が
         <input type="date" id="baseDate" style="font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)">
         以前のものだけ抽出</label>
@@ -223,8 +223,9 @@ const NCOL = 95;
 function colIdx(letter){let n=0;for(const c of letter)n=n*26+(c.charCodeAt(0)-64);return n-1;}
 
 // ===== ご依頼主・固定値（画面の入力欄から取得。個人情報はソースに持たせず、利用者がブラウザに保存） =====
-// 氏名・電話・住所・請求先顧客コードは公開ソースに含めない（空）。分類コード/運賃番号のみ一般的な既定値。
-const SENDER_DEFAULTS={name:"",tel:"",zip:"",addr:"",bill:"",cls:"001",freight:"01"};
+// 氏名・電話・住所・請求先顧客コードは公開ソースに含めない（空）。
+// 分類コードはこの口座では空欄が正（プルダウン表示に3桁分類が無い）。運賃番号のみ既定01。
+const SENDER_DEFAULTS={name:"",tel:"",zip:"",addr:"",bill:"",cls:"",freight:"01"};
 const SET_INPUTS={name:"setName",tel:"setTel",zip:"setZip",addr:"setAddr",bill:"setBill",cls:"setCls",freight:"setFreight"};
 const SET_STORE="yamatoB2_sender_v1";
 const SHORTEN_STORE="yamatoB2_shorten_v1";
@@ -331,7 +332,7 @@ function normPhone(s){ // 国際表記 +81 を国内 0 に直す（ヤマトは+
 }
 function fmtItem(it){if(!it||!it.name)return "";const q=(it.qty==null?1:it.qty);return (it.name+" "+q).replace(/\s+/g," ").trim();}
 let STRIP_SPACE=true;
-let BLANK_BILL=true; // 請求先3列を空欄で出力（B2の既定請求先を自動使用）
+let BLANK_BILL=false; // 請求先3列を空欄で出力（B2の既定請求先を自動使用）。実際の値は変換時にチェックボックスから取得
 function stripSpaces(s){
   if(!STRIP_SPACE||!s)return s;
   const isDigit=c=>/[0-9０-９]/.test(c||"");
@@ -472,6 +473,9 @@ const $=id=>document.getElementById(id);
 // ===== ご依頼主・固定値の入力欄（localStorage 保存） =====
 function loadSettings(){
   let saved={};try{saved=JSON.parse(localStorage.getItem(SET_STORE)||"{}");}catch(e){saved={};}
+  // 旧版の既定値「01」が分類コードに自動保存されているのを一度だけ空欄へ補正
+  // （運賃番号01の重複で、請求先エラーの原因。利用者の手作業は不要）
+  if(saved.cls==="01"){delete saved.cls;try{localStorage.setItem(SET_STORE,JSON.stringify(saved));}catch(e){}}
   const v={...SENDER_DEFAULTS,...saved};
   for(const k in SET_INPUTS)$(SET_INPUTS[k]).value=(v[k]!=null?v[k]:"");
 }
