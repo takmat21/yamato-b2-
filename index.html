@@ -247,7 +247,14 @@ function textScore(s){
   }
   return good-bad*5;
 }
-// 文字コードを自動判別（Encoding.detect任せにせず、候補を実デコードして最良を採用）
+// 厳密UTF-8判定（不正バイトがあれば例外＝UTF-8ではない）。SJIS/EUC-JPのバイト列が
+// 偶然そのまま妥当なUTF-8になることはほぼ無いので、UTF-8の確実な検出に使える。
+function isValidUTF8(u8){try{new TextDecoder('utf-8',{fatal:true}).decode(u8);return true;}catch(e){return false;}}
+// 文字コードを自動判別。
+// ポイント：SJISのバイト列をEUC-JPで読むと化け漢字が漢字範囲に多く入り、採点上は正しいSJISより
+// 高得点になりがち（Amazon/YahooのSJISをEUC-JPと誤判定する原因）。そこで
+//  ① まず厳密UTF-8なら確定でUTF-8（BASE等）
+//  ② 残りの日本語レガシーは Encoding.detect を優先しつつ採点でSJIS/EUC-JPを決定
 function decodeFile(buf){
   const u8=new Uint8Array(buf);
   // BOM
@@ -257,10 +264,14 @@ function decodeFile(buf){
   // NULバイトが多ければUTF-16LE（誤検出を避けるためBOM/NULでのみ採用）
   let nul=0,lim=Math.min(u8.length,400);for(let i=0;i<lim;i++)if(u8[i]===0)nul++;
   if(lim>0&&nul>lim*0.1)return decFrom(u8,'UTF16LE');
-  // 残りは UTF8 / SJIS / EUCJP を採点して最良を選ぶ
+  // ① 厳密UTF-8として妥当ならUTF-8で確定
+  if(isValidUTF8(u8))return decFrom(u8,'UTF8');
+  // ② SJIS / EUC-JP を採点。Encoding.detectが支持する方を加点して誤判定を防ぐ
+  let det="";try{det=Encoding.detect(u8)||"";}catch(e){det="";}
   let best=null,bestScore=-Infinity;
-  for(const e of ['UTF8','SJIS','EUCJP']){const t=decFrom(u8,e);if(t==null)continue;
-    const sc=textScore(t);if(sc>bestScore){bestScore=sc;best=t;}}
+  for(const e of ['SJIS','EUCJP']){const t=decFrom(u8,e);if(t==null)continue;
+    let sc=textScore(t);if(e===det)sc+=1000;
+    if(sc>bestScore){bestScore=sc;best=t;}}
   return best!=null?best:decFrom(u8,'SJIS');
 }
 function splitLines(t){return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.length>0);}
