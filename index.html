@@ -174,7 +174,7 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
 
   <div class="card hide" id="result">
     <p class="summary" id="sum"></p>
-    <p class="note">※ 赤いセルは要確認（建物名が16文字超／到着日が「最短日」など）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。</p>
+    <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、到着日が「最短日」など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げます。</p>
     <div class="tablewrap"><table id="tbl"></table></div>
     <div class="hint">
       取り込み手順：ヤマト B2クラウド →「送り状発行」→「外部データ取り込み」→ このCSVを選択。
@@ -359,6 +359,26 @@ function stripSpaces(s){
   }
   return out;
 }
+// 建物名の先頭にある番地(例:6-15-1)を住所側へ繰り上げる。
+// B2の「マンション・ビル名」は全角16字までで、Amazon等が番地を建物欄に入れてくると超過するため。
+// 数字＋ハイフンが続く形(最低1ハイフン)のみ対象。単独数字や英字始まりの建物名は動かさない。
+function liftBanchi(addr,bldg){
+  if(!bldg)return [addr,bldg];
+  const m=bldg.match(/^\s*([0-9０-９]+(?:\s*[-‐‑–—―ー－ｰ]\s*[0-9０-９]+)+)\s*/);
+  if(m)return [(addr||"")+m[1].replace(/\s+/g,""), bldg.slice(m[0].length)];
+  return [addr,bldg];
+}
+// 住所を 都道府県／市区郡町村／町・番地 にざっくり分割（B2の文字数チェック用）。
+function splitAddr(s){
+  s=s||"";
+  const pm=s.match(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/);
+  const pref=pm?pm[1]:"";
+  const rest=s.slice(pref.length);
+  // 政令市(○○市○○区)・郡(○○郡○○町/村)・単独(市/区/町/村)の順で市区郡町村を判定
+  const cm=rest.match(/^(.+?郡.+?[町村]|.+?市.+?区|.+?[市区町村])/);
+  const city=cm?cm[1]:"";
+  return {pref,city,town:rest.slice(city.length)};
+}
 
 // ===== 1明細を1行(95列)に =====
 function buildRow(o){
@@ -372,8 +392,9 @@ function buildRow(o){
   setC(r,"G",o.slot);
   setC(r,"I",normPhone(o.tel));
   setC(r,"K",o.zip);
-  setC(r,"L",stripSpaces(o.addr));
-  setC(r,"M",stripSpaces(o.bldg));
+  const [laddr,lbldg]=liftBanchi(o.addr,o.bldg); // 建物名先頭の番地を住所へ繰り上げ
+  setC(r,"L",stripSpaces(laddr));
+  setC(r,"M",stripSpaces(lbldg));
   setC(r,"P",o.name);
   setC(r,"T",SENDER.tel);setC(r,"V",SENDER.zip);setC(r,"W",SENDER.addr);setC(r,"Y",SENDER.name);
   {const its=o.items||[];
@@ -621,10 +642,16 @@ function renderTable(nShip,nLine,excluded){
     show.forEach(([c,l])=>{
       if(c===""){const ch=metaChan[ri];const color={AMAZON:"#e08a1e",YAHOO:"#c0392b",BASE:"#3a6ea5"}[ch]||"#999";
         html+=`<td><span class="chan" style="background:${color}">${ch}</span></td>`;return;}
-      const v=r[colIdx(c)];let cls="";
-      if(c==="M"&&zenLen(v)>16)cls="warn";
-      if((c==="F")&&v==="最短日")cls="warn";
-      html+=`<td contenteditable data-row="${ri}" data-col="${c}" class="${cls}">${v?escapeHtml(v):'<span class="empty">—</span>'}</td>`;
+      const v=r[colIdx(c)];let cls="",tip="";
+      if(c==="M"&&zenLen(v)>16){cls="warn";tip="建物名が長すぎます（全角16文字まで）";}
+      if(c==="P"&&zenLen(v)>16){cls="warn";tip="お届け先名が長すぎます（全角16文字まで）";}
+      if(c==="L"){const sp=splitAddr(v);const ov=[];
+        if(zenLen(sp.pref)>4)ov.push("都道府県(4)");
+        if(zenLen(sp.city)>12)ov.push("市区郡町村(12)");
+        if(zenLen(sp.town)>16)ov.push("町・番地(16)");
+        if(ov.length){cls="warn";tip="住所が長すぎます："+ov.join("／")+" 超過";}}
+      if((c==="F")&&v==="最短日"){cls="warn";tip="お届け日が最短日です";}
+      html+=`<td contenteditable data-row="${ri}" data-col="${c}" class="${cls}"${tip?` title="${escapeHtml(tip)}"`:""}>${v?escapeHtml(v):'<span class="empty">—</span>'}</td>`;
     });
     html+="</tr>";
   });

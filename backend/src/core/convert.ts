@@ -107,6 +107,16 @@ function setC(row: string[], letter: string, v: unknown): void {
   row[colIdx(letter)] = v == null ? "" : String(v);
 }
 
+/** 建物名の先頭にある番地(例:6-15-1)を住所側へ繰り上げる。
+ *  B2の「マンション・ビル名」は全角16字までで、Amazon等が番地を建物欄に入れてくると超過するため。
+ *  数字＋ハイフンが続く形(最低1ハイフン)のみ対象。単独数字や英字始まりの建物名は動かさない。 */
+export function liftBanchi(addr: string, bldg: string): [string, string] {
+  if (!bldg) return [addr, bldg];
+  const m = bldg.match(/^\s*([0-9０-９]+(?:\s*[-‐‑–—―ー－ｰ]\s*[0-9０-９]+)+)\s*/);
+  if (m) return [(addr || "") + m[1].replace(/\s+/g, ""), bldg.slice(m[0].length)];
+  return [addr, bldg];
+}
+
 /** 1注文 → 95列の1行 */
 export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today: Date = jstToday(), strip = true, blankBill = true): string[] {
   const r = new Array(NCOL).fill("");
@@ -119,8 +129,9 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   setC(r, "G", o.slot);
   setC(r, "I", normPhone(o.tel));
   setC(r, "K", o.zip);
-  setC(r, "L", stripSpaces(o.addr, strip));
-  setC(r, "M", stripSpaces(o.bldg, strip));
+  const [laddr, lbldg] = liftBanchi(o.addr, o.bldg); // 建物名先頭の番地を住所へ繰り上げ
+  setC(r, "L", stripSpaces(laddr, strip));
+  setC(r, "M", stripSpaces(lbldg, strip));
   setC(r, "P", o.name);
   setC(r, "T", sender.tel); setC(r, "V", sender.zip); setC(r, "W", sender.addr); setC(r, "Y", sender.name);
 
