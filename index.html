@@ -174,7 +174,7 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
 
   <div class="card hide" id="result">
     <p class="summary" id="sum"></p>
-    <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、到着日が「最短日」など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げます。</p>
+    <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、到着日が「最短日」など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げ、建物名が16字を超える分も町・番地側の空きへ自動で送って収めます（合計32字を超える場合のみ赤で警告）。</p>
     <div class="tablewrap"><table id="tbl"></table></div>
     <div class="hint">
       取り込み手順：ヤマト B2クラウド →「送り状発行」→「外部データ取り込み」→ このCSVを選択。
@@ -379,6 +379,19 @@ function splitAddr(s){
   const city=cm?cm[1]:"";
   return {pref,city,town:rest.slice(city.length)};
 }
+// 先頭から全角maxZen以内に収まる最大の文字列を返す（半角=0.5）
+function takeZen(s,maxZen){let n=0,i=0;for(;i<s.length;i++){const w=s.charCodeAt(i)>0xff?1:0.5;if(n+w>maxZen)break;n+=w;}return s.slice(0,i);}
+// 建物名が全角16字を超える場合、超過分を「町・番地」側(空きがある範囲)へ送り、両方を16字以内に収める。
+// データは消さない。合計が32字を超える場合のみ収まりきらず警告(赤)が残る。
+function fitAddrBldg(addr,bldg){
+  if(zenLen(bldg)<=16)return [addr,bldg];
+  const {pref,city,town}=splitAddr(addr);
+  const space=16-zenLen(town);
+  if(space<=0)return [addr,bldg];
+  const move=takeZen(bldg,space);
+  if(!move)return [addr,bldg];
+  return [pref+city+town+move, bldg.slice(move.length)];
+}
 
 // ===== 1明細を1行(95列)に =====
 function buildRow(o){
@@ -392,9 +405,11 @@ function buildRow(o){
   setC(r,"G",o.slot);
   setC(r,"I",normPhone(o.tel));
   setC(r,"K",o.zip);
-  const [laddr,lbldg]=liftBanchi(o.addr,o.bldg); // 建物名先頭の番地を住所へ繰り上げ
-  setC(r,"L",stripSpaces(laddr));
-  setC(r,"M",stripSpaces(lbldg));
+  let [laddr,lbldg]=liftBanchi(o.addr,o.bldg); // 建物名先頭の番地を住所へ繰り上げ
+  laddr=stripSpaces(laddr);lbldg=stripSpaces(lbldg);
+  [laddr,lbldg]=fitAddrBldg(laddr,lbldg); // 建物名16字超は町・番地側へ送り収める
+  setC(r,"L",laddr);
+  setC(r,"M",lbldg);
   setC(r,"P",o.name);
   setC(r,"T",SENDER.tel);setC(r,"V",SENDER.zip);setC(r,"W",SENDER.addr);setC(r,"Y",SENDER.name);
   {const its=o.items||[];

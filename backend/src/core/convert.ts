@@ -117,6 +117,39 @@ export function liftBanchi(addr: string, bldg: string): [string, string] {
   return [addr, bldg];
 }
 
+/** 全角=1,半角=0.5 で文字幅を数える（B2は建物名・町番地とも全角16字） */
+function zenLen(s: string): number {
+  let n = 0;
+  for (const c of s || "") n += c.charCodeAt(0) > 0xff ? 1 : 0.5;
+  return n;
+}
+/** 住所を 都道府県／市区郡町村／町・番地 にざっくり分割 */
+function splitAddr(s: string): { pref: string; city: string; town: string } {
+  s = s || "";
+  const pm = s.match(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/);
+  const pref = pm ? pm[1] : "";
+  const rest = s.slice(pref.length);
+  const cm = rest.match(/^(.+?郡.+?[町村]|.+?市.+?区|.+?[市区町村])/);
+  const city = cm ? cm[1] : "";
+  return { pref, city, town: rest.slice(city.length) };
+}
+/** 先頭から全角maxZen以内に収まる最大の文字列 */
+function takeZen(s: string, maxZen: number): string {
+  let n = 0, i = 0;
+  for (; i < s.length; i++) { const w = s.charCodeAt(i) > 0xff ? 1 : 0.5; if (n + w > maxZen) break; n += w; }
+  return s.slice(0, i);
+}
+/** 建物名が全角16字を超える分を「町・番地」側(空きがある範囲)へ送り、両方を16字以内に収める(データは消さない) */
+export function fitAddrBldg(addr: string, bldg: string): [string, string] {
+  if (zenLen(bldg) <= 16) return [addr, bldg];
+  const { pref, city, town } = splitAddr(addr);
+  const space = 16 - zenLen(town);
+  if (space <= 0) return [addr, bldg];
+  const move = takeZen(bldg, space);
+  if (!move) return [addr, bldg];
+  return [pref + city + town + move, bldg.slice(move.length)];
+}
+
 /** 1注文 → 95列の1行 */
 export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today: Date = jstToday(), strip = true, blankBill = true): string[] {
   const r = new Array(NCOL).fill("");
@@ -129,9 +162,11 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   setC(r, "G", o.slot);
   setC(r, "I", normPhone(o.tel));
   setC(r, "K", o.zip);
-  const [laddr, lbldg] = liftBanchi(o.addr, o.bldg); // 建物名先頭の番地を住所へ繰り上げ
-  setC(r, "L", stripSpaces(laddr, strip));
-  setC(r, "M", stripSpaces(lbldg, strip));
+  let [laddr, lbldg] = liftBanchi(o.addr, o.bldg); // 建物名先頭の番地を住所へ繰り上げ
+  laddr = stripSpaces(laddr, strip); lbldg = stripSpaces(lbldg, strip);
+  [laddr, lbldg] = fitAddrBldg(laddr, lbldg); // 建物名16字超は町・番地側へ送り収める
+  setC(r, "L", laddr);
+  setC(r, "M", lbldg);
   setC(r, "P", o.name);
   setC(r, "T", sender.tel); setC(r, "V", sender.zip); setC(r, "W", sender.addr); setC(r, "Y", sender.name);
 
