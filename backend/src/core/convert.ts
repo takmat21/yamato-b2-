@@ -184,8 +184,9 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   if (!blankBill) { setC(r, "AN", sender.bill); setC(r, "AO", sender.cls); setC(r, "AP", sender.freight); }
 
   if (o.ch === "AMAZON") {
-    // Amazonは Amazon/ヤマト側が配送通知を行う。直送メール拒否のお客様が多いため送らない。
-    setC(r, "AV", "0"); setC(r, "AZ", "0");
+    // Amazonは Amazon/ヤマト側が配送通知を行うため送らない（利用区分=0）。
+    // ただしお届け予定メールのアドレス欄(AW)には記録としてアドレスを入れておく。
+    setC(r, "AV", "0"); setC(r, "AW", o.email); setC(r, "AZ", "0");
   } else {
     setC(r, "AV", "1"); setC(r, "AW", o.email);
     setC(r, "AY", "お届け予定"); setC(r, "AZ", "1"); setC(r, "BA", o.email); setC(r, "BB", "お届け完了");

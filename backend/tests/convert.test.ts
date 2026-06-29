@@ -48,7 +48,7 @@ test("buildRow: Amazonはメール利用区分0、その他は1", () => {
   const amz = buildRow(base, SENDER_DEFAULTS, TODAY);
   assert.equal(amz[colIdx("AV")], "0");
   assert.equal(amz[colIdx("AZ")], "0");
-  assert.equal(amz[colIdx("AW")], "");
+  assert.equal(amz[colIdx("AW")], "x@example.com"); // 利用区分0でもアドレスは記録
   assert.equal(amz[colIdx("I")], "09011112222");
   assert.equal(amz[colIdx("E")], "2026/6/15");
   assert.equal(amz[colIdx("AB")], "A");
