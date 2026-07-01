@@ -150,6 +150,43 @@ export function fitAddrBldg(addr: string, bldg: string): [string, string] {
   return [pref + city + town + move, bldg.slice(move.length)];
 }
 
+/** 政令指定都市の 区一覧。元データで「市」が抜けている(例:福岡県博多区…)場合に市名を補完する */
+const SEIREI_CITIES: Record<string, Record<string, string[]>> = {
+  "北海道": { "札幌市": ["中央区","北区","東区","白石区","豊平区","南区","西区","厚別区","手稲区","清田区"] },
+  "宮城県": { "仙台市": ["青葉区","宮城野区","若林区","太白区","泉区"] },
+  "埼玉県": { "さいたま市": ["西区","北区","大宮区","見沼区","中央区","桜区","浦和区","南区","緑区","岩槻区"] },
+  "千葉県": { "千葉市": ["中央区","花見川区","稲毛区","若葉区","緑区","美浜区"] },
+  "神奈川県": { "横浜市": ["鶴見区","神奈川区","西区","中区","南区","保土ケ谷区","磯子区","金沢区","港北区","戸塚区","港南区","旭区","緑区","瀬谷区","栄区","泉区","青葉区","都筑区"], "川崎市": ["川崎区","幸区","中原区","高津区","多摩区","宮前区","麻生区"], "相模原市": ["緑区","中央区","南区"] },
+  "新潟県": { "新潟市": ["北区","東区","中央区","江南区","秋葉区","南区","西区","西蒲区"] },
+  "静岡県": { "静岡市": ["葵区","駿河区","清水区"], "浜松市": ["中央区","浜名区","天竜区"] },
+  "愛知県": { "名古屋市": ["千種区","東区","北区","西区","中村区","中区","昭和区","瑞穂区","熱田区","中川区","港区","南区","守山区","緑区","名東区","天白区"] },
+  "京都府": { "京都市": ["北区","上京区","左京区","中京区","東山区","下京区","南区","右京区","伏見区","山科区","西京区"] },
+  "大阪府": { "大阪市": ["都島区","福島区","此花区","西区","港区","大正区","天王寺区","浪速区","西淀川区","東淀川区","東成区","生野区","旭区","城東区","阿倍野区","住吉区","東住吉区","西成区","淀川区","鶴見区","住之江区","平野区","北区","中央区"], "堺市": ["堺区","中区","東区","西区","南区","北区","美原区"] },
+  "兵庫県": { "神戸市": ["東灘区","灘区","兵庫区","長田区","須磨区","垂水区","北区","中央区","西区"] },
+  "岡山県": { "岡山市": ["北区","中区","東区","南区"] },
+  "広島県": { "広島市": ["中区","東区","南区","西区","安佐南区","安佐北区","安芸区","佐伯区"] },
+  "福岡県": { "福岡市": ["東区","博多区","中央区","南区","西区","城南区","早良区"], "北九州市": ["門司区","若松区","戸畑区","小倉北区","小倉南区","八幡東区","八幡西区"] },
+  "熊本県": { "熊本市": ["中央区","東区","西区","南区","北区"] },
+};
+const WARD2CITY: Record<string, Record<string, string | null>> = (() => {
+  const m: Record<string, Record<string, string | null>> = {};
+  for (const p in SEIREI_CITIES) {
+    m[p] = {};
+    for (const c in SEIREI_CITIES[p]) for (const w of SEIREI_CITIES[p][c]) m[p][w] = (w in m[p]) ? null : c;
+  }
+  return m;
+})();
+function prefOf(addr: string): string { const m = (addr || "").match(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/); return m ? m[1] : ""; }
+/** 都道府県の直後がいきなり政令市の区(市名抜け)なら市名を補う。曖昧な区名はそのまま */
+export function completeCity(addr: string): string {
+  if (!addr) return addr;
+  const pref = prefOf(addr); if (!pref) return addr;
+  const wm = WARD2CITY[pref]; if (!wm) return addr;
+  const rest = addr.slice(pref.length);
+  for (const w in wm) if (rest.startsWith(w)) return wm[w] ? pref + wm[w] + rest : addr;
+  return addr;
+}
+
 /** 1注文 → 95列の1行 */
 export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today: Date = jstToday(), strip = true, blankBill = true): string[] {
   const r = new Array(NCOL).fill("");
@@ -162,7 +199,7 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   setC(r, "G", o.slot);
   setC(r, "I", normPhone(o.tel));
   setC(r, "K", o.zip);
-  let [laddr, lbldg] = liftBanchi(o.addr, o.bldg); // 建物名先頭の番地を住所へ繰り上げ
+  let [laddr, lbldg] = liftBanchi(completeCity(o.addr), o.bldg); // 政令市の市名補完＋建物名先頭の番地を住所へ繰り上げ
   laddr = stripSpaces(laddr, strip); lbldg = stripSpaces(lbldg, strip);
   [laddr, lbldg] = fitAddrBldg(laddr, lbldg); // 建物名16字超は町・番地側へ送り収める
   setC(r, "L", laddr);
