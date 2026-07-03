@@ -218,7 +218,8 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   setC(r, "AF", "ナマモノ");
   if (o.cod) setC(r, "AH", o.cod);
   // 請求先を空欄で出力すると、B2取込時に既定の請求先が自動使用され「請求先が存在しません」エラーを回避できる。
-  if (!blankBill) { setC(r, "AN", sender.bill); setC(r, "AO", sender.cls); setC(r, "AP", sender.freight); }
+  if (!blankBill) { setC(r, "AN", sender.bill); setC(r, "AO", sender.cls); }
+  setC(r, "AP", sender.freight || "01"); // 運賃管理番号は必須。常に文字列で出力（既定01）
 
   if (o.ch === "AMAZON") {
     // Amazonは Amazon/ヤマト側が配送通知を行うため送らない（利用区分=0）。

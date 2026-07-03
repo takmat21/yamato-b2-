@@ -455,7 +455,8 @@ function buildRow(o){
    if(its.length>=1)setC(r,"AD",String(total));}               // 品名2: 合計数量
   setC(r,"AF","ナマモノ");
   if(o.cod)setC(r,"AH",o.cod);
-  if(!BLANK_BILL){setC(r,"AN",SENDER.bill);setC(r,"AO",SENDER.cls);setC(r,"AP",SENDER.freight);}
+  if(!BLANK_BILL){setC(r,"AN",SENDER.bill);setC(r,"AO",SENDER.cls);}
+  setC(r,"AP",SENDER.freight||"01"); // 運賃管理番号は必須。常に文字列で出力（既定01）
   if(o.ch==="AMAZON"){
     // AmazonはAmazon/ヤマト側が配送通知を行うため、お届け予定/完了メールは送らない（利用区分=0）。
     // ただしお届け予定メールのアドレス欄(AW)には記録としてメールアドレスを入れておく。
