@@ -167,6 +167,7 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
     <div class="note">「出荷予定日が〔基準日〕以前のものだけ抽出」をオンにすると、お届けが先の注文（＝出荷予定日が基準日より後）を除外します。基準日は本日が初期値です。毎日この設定で出力すれば、先に出す注文を手で消す必要がありません。</div>
     <div class="btnrow">
       <button class="primary" id="run" disabled>変換する</button>
+      <button class="ghost" id="reload" type="button" title="ページを再読み込みして最初からやり直す">🔄 リロード</button>
       <button class="ghost hide" id="dl">CSVをダウンロード（B2取り込み用）</button>
       <button class="ghost hide" id="copy">クリップボードにコピー（テンプレに貼付）</button>
     </div>
@@ -677,6 +678,7 @@ function doConvert(){
   $("result").classList.remove("hide");$("dl").classList.remove("hide");$("copy").classList.remove("hide");
 }
 $("run").onclick=doConvert;
+$("reload").onclick=()=>location.reload(); // ページを再読み込みして最初からやり直す
 // 出荷フィルタの切替・基準日変更時は、変換済みなら自動で再変換
 $("optToday").onchange=()=>{if(!$("result").classList.contains("hide"))doConvert();};
 $("baseDate").onchange=()=>{if($("optToday").checked&&!$("result").classList.contains("hide"))doConvert();};
