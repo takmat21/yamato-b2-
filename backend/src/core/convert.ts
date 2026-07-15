@@ -187,6 +187,25 @@ export function completeCity(addr: string): string {
   return addr;
 }
 
+/** 住所と建物名を正しく振り分け直す。
+ *  ・町・番地が空で建物名側に住所が入っている→住所へ戻す
+ *  ・建物名が空で住所に建物名(カタカナ)が混在→番地の後の最初のカタカナ以降を建物名へ分離 */
+export function extractBuilding(addr: string, bldg: string): [string, string] {
+  let { pref, city, town } = splitAddr(addr);
+  if (!town && bldg) { town = bldg; bldg = ""; }
+  if (!bldg) {
+    let seenDigit = false;
+    for (let i = 0; i < town.length; i++) {
+      const ch = town[i], cp = ch.codePointAt(0)!;
+      if (/[0-9０-９]/.test(ch)) seenDigit = true;
+      else if (seenDigit && ((cp >= 0x30A1 && cp <= 0x30FF) || cp === 0x30FC)) {
+        bldg = town.slice(i).trim(); town = town.slice(0, i).replace(/\s+$/, ""); break;
+      }
+    }
+  }
+  return [pref + city + town, bldg];
+}
+
 /** 1注文 → 95列の1行 */
 export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today: Date = jstToday(), strip = true, blankBill = true): string[] {
   const r = new Array(NCOL).fill("");
@@ -200,6 +219,7 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   setC(r, "I", normPhone(o.tel));
   setC(r, "K", o.zip);
   let [laddr, lbldg] = liftBanchi(completeCity(o.addr), o.bldg); // 政令市の市名補完＋建物名先頭の番地を住所へ繰り上げ
+  [laddr, lbldg] = extractBuilding(laddr, lbldg); // 住所と建物名を正しく振り分け直す
   laddr = stripSpaces(laddr, strip); lbldg = stripSpaces(lbldg, strip);
   [laddr, lbldg] = fitAddrBldg(laddr, lbldg); // 建物名16字超は町・番地側へ送り収める
   setC(r, "L", laddr);
