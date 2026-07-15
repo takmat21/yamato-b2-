@@ -175,7 +175,7 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
 
   <div class="card hide" id="result">
     <p class="summary" id="sum"></p>
-    <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、到着日が「最短日」など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げ、建物名が16字を超える分も町・番地側の空きへ自動で送って収めます（合計32字を超える場合のみ赤で警告）。</p>
+    <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、品名1が25字超、到着日が「最短日」など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げ、建物名が16字を超える分も町・番地側の空きへ自動で送って収めます（合計32字を超える場合のみ赤で警告）。</p>
     <div class="tablewrap"><table id="tbl"></table></div>
     <div class="hint">
       取り込み手順：ヤマト B2クラウド →「送り状発行」→「外部データ取り込み」→ このCSVを選択。
@@ -716,6 +716,7 @@ function renderTable(nShip,nLine,excluded){
       const v=r[colIdx(c)];let cls="",tip="";
       if(c==="M"&&zenLen(v)>16){cls="warn";tip="建物名が長すぎます（全角16文字まで）";}
       if(c==="P"&&zenLen(v)>16){cls="warn";tip="お届け先名が長すぎます（全角16文字まで）";}
+      if(c==="AB"&&zenLen(v)>25){cls="warn";tip="品名1が長すぎます（全角25文字まで）";}
       if(c==="L"){const sp=splitAddr(v);const ov=[];
         if(zenLen(sp.pref)>4)ov.push("都道府県(4)");
         if(zenLen(sp.city)>12)ov.push("市区郡町村(12)");
