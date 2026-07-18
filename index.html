@@ -306,12 +306,15 @@ function shortenName(name,abbr){
   let s=name||"";
   for(const [from,to] of CUSTOM_SHORTEN){if(from)s=s.split(from).join(to);}
   for(const w of BOILER)s=s.split(w).join(" ");
-  s=s.replace(/\d+(\.\d+)?\s*[gG]\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g," ");  // 27g～33g
-  s=s.replace(/\d+(\.\d+)?\s*[~～]\s*\d+(\.\d+)?\s*[gG]/g," ");          // 27～33g
-  s=s.replace(/[~～]\s*\d+(\.\d+)?\s*[gG]/g," ");                        // ～33g
-  s=s.replace(/\d+(\.\d+)?\s*[gG]\s*[~～]?/g," ");                       // 33g～ / 33g
-  s=s.replace(/約?\s*\d+(\.\d+)?\s*(cm|ｃｍ)/g," ");
-  s=s.replace(/\d+\s*匹/g," ");
+  // 重量表記(例:32g / 27g～33g / 2〜3g / ２〜３ｇ / 3kg)を除去。
+  // 波ダッシュ〜(U+301C)・全角チルダ～・各種ハイフン・全角数字/ｇ・kg に対応。
+  {const D="[0-9０-９]",G="[kｋ]?[gGｇＧ]",T="[-‐‑–—―ー－~～〜]",DOT="(?:[.．][0-9０-９]+)?";
+   s=s.replace(new RegExp(D+"+"+DOT+"\\s*"+G+"\\s*"+T+"\\s*"+D+"+"+DOT+"\\s*"+G,"g")," "); // 27g～33g
+   s=s.replace(new RegExp(D+"+"+DOT+"\\s*"+T+"\\s*"+D+"+"+DOT+"\\s*"+G,"g")," ");          // 27～33g
+   s=s.replace(new RegExp(T+"\\s*"+D+"+"+DOT+"\\s*"+G,"g")," ");                            // ～33g
+   s=s.replace(new RegExp(D+"+"+DOT+"\\s*"+G+"\\s*"+T+"?","g")," ");}                       // 33g～ / 33g
+  s=s.replace(/約?\s*[0-9０-９]+([.．][0-9０-９]+)?\s*(cm|ｃｍ|CM|Cm|mm|ｍｍ)/g," ");
+  s=s.replace(/[0-9０-９]+\s*匹/g," ");
   if(abbr){s=s.split("アダルト").join("A").split("ピンク").join("P");}
   s=s.replace(/[　 ]+/g," ").trim();
   return s;
