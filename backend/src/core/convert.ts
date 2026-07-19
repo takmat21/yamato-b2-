@@ -182,6 +182,15 @@ const WARD2CITY: Record<string, Record<string, string | null>> = (() => {
   return m;
 })();
 function prefOf(addr: string): string { const m = (addr || "").match(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/); return m ? m[1] : ""; }
+/** Amazon等で都道府県がローマ字(例:Kyoto-fu)の場合に日本語へ変換 */
+const ROMAJI_PREF: Record<string, string> = { hokkaido: "北海道", aomori: "青森県", iwate: "岩手県", miyagi: "宮城県", akita: "秋田県", yamagata: "山形県", fukushima: "福島県", ibaraki: "茨城県", tochigi: "栃木県", gunma: "群馬県", gumma: "群馬県", saitama: "埼玉県", chiba: "千葉県", tokyo: "東京都", kanagawa: "神奈川県", niigata: "新潟県", toyama: "富山県", ishikawa: "石川県", fukui: "福井県", yamanashi: "山梨県", nagano: "長野県", gifu: "岐阜県", shizuoka: "静岡県", aichi: "愛知県", mie: "三重県", shiga: "滋賀県", kyoto: "京都府", osaka: "大阪府", hyogo: "兵庫県", hyougo: "兵庫県", nara: "奈良県", wakayama: "和歌山県", tottori: "鳥取県", shimane: "島根県", okayama: "岡山県", hiroshima: "広島県", yamaguchi: "山口県", tokushima: "徳島県", kagawa: "香川県", ehime: "愛媛県", kochi: "高知県", kouchi: "高知県", fukuoka: "福岡県", saga: "佐賀県", nagasaki: "長崎県", kumamoto: "熊本県", oita: "大分県", ooita: "大分県", miyazaki: "宮崎県", kagoshima: "鹿児島県", okinawa: "沖縄県" };
+export function romajiPref(addr: string): string {
+  if (!addr) return addr;
+  const m = addr.match(/^([A-Za-z]+)(-(?:to|fu|ken|do))?/i);
+  if (!m) return addr;
+  const base = m[1].toLowerCase();
+  return ROMAJI_PREF[base] ? ROMAJI_PREF[base] + addr.slice(m[0].length) : addr;
+}
 /** 都道府県の直後がいきなり政令市の区(市名抜け)なら市名を補う。曖昧な区名はそのまま */
 export function completeCity(addr: string): string {
   if (!addr) return addr;
@@ -223,7 +232,7 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   setC(r, "G", o.slot);
   setC(r, "I", normPhone(o.tel));
   setC(r, "K", o.zip);
-  let [laddr, lbldg] = liftBanchi(completeCity(o.addr), o.bldg); // 政令市の市名補完＋建物名先頭の番地を住所へ繰り上げ
+  let [laddr, lbldg] = liftBanchi(completeCity(romajiPref(o.addr)), o.bldg); // ローマ字都道府県→日本語＋政令市の市名補完＋建物名先頭の番地を住所へ繰り上げ
   [laddr, lbldg] = extractBuilding(laddr, lbldg); // 住所と建物名を正しく振り分け直す
   laddr = stripSpaces(laddr, strip); lbldg = stripSpaces(lbldg, strip);
   [laddr, lbldg] = fitAddrBldg(laddr, lbldg); // 建物名16字超は町・番地側へ送り収める
