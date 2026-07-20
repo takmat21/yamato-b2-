@@ -191,6 +191,14 @@ export function romajiPref(addr: string): string {
   const base = m[1].toLowerCase();
   return ROMAJI_PREF[base] ? ROMAJI_PREF[base] + addr.slice(m[0].length) : addr;
 }
+/** 市区町村名の重複を除去（例:川崎市川崎市宮前区→川崎市宮前区）。
+ *  ship-cityとship-address-1の両方に市名が入る場合の対策 */
+export function dedupeCity(addr: string): string {
+  if (!addr) return addr;
+  let s = addr, prev: string;
+  do { prev = s; s = s.replace(/([^0-9０-９\s]{1,8}?[市区郡町村])\1/, "$1"); } while (s !== prev);
+  return s;
+}
 /** 都道府県の直後がいきなり政令市の区(市名抜け)なら市名を補う。曖昧な区名はそのまま */
 export function completeCity(addr: string): string {
   if (!addr) return addr;
@@ -232,7 +240,7 @@ export function buildRow(o: Order, sender: SenderConfig = SENDER_DEFAULTS, today
   setC(r, "G", o.slot);
   setC(r, "I", normPhone(o.tel));
   setC(r, "K", o.zip);
-  let [laddr, lbldg] = liftBanchi(completeCity(romajiPref(o.addr)), o.bldg); // ローマ字都道府県→日本語＋政令市の市名補完＋建物名先頭の番地を住所へ繰り上げ
+  let [laddr, lbldg] = liftBanchi(completeCity(dedupeCity(romajiPref(o.addr))), o.bldg); // ローマ字都道府県→日本語＋市名重複除去＋政令市の市名補完＋建物名先頭の番地を住所へ繰り上げ
   [laddr, lbldg] = extractBuilding(laddr, lbldg); // 住所と建物名を正しく振り分け直す
   laddr = stripSpaces(laddr, strip); lbldg = stripSpaces(lbldg, strip);
   [laddr, lbldg] = fitAddrBldg(laddr, lbldg); // 建物名16字超は町・番地側へ送り収める
