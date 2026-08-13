@@ -175,11 +175,17 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
 
   <div class="card hide" id="result">
     <p class="summary" id="sum"></p>
-    <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、品名1が25字超、到着日が「最短日」など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げ、建物名が16字を超える分も町・番地側の空きへ自動で送って収めます（合計32字を超える場合のみ赤で警告）。</p>
+    <div id="dupWarn" class="hide" style="background:#fdecec;border:1px solid #e0b4b4;color:#a12;padding:8px 10px;border-radius:6px;font-size:13px;margin:6px 0"></div>
+    <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、品名1が25字超、到着日が「最短日」、管理番号＝2重処理の可能性など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げ、建物名が16字を超える分も町・番地側の空きへ自動で送って収めます（合計32字を超える場合のみ赤で警告）。</p>
     <div class="tablewrap"><table id="tbl"></table></div>
     <div class="hint">
       取り込み手順：ヤマト B2クラウド →「送り状発行」→「外部データ取り込み」→ このCSVを選択。
       文字コードは <code>Shift-JIS</code> で出力しています。従来どおりテンプレに貼り付ける場合は「コピー」を使ってください（タブ区切り）。
+    </div>
+    <div class="note" style="margin-top:8px">
+      2重処理チェック：ダウンロード／コピーした注文は「処理済み」として記録し、次回同じ注文を変換すると赤で警告します（重複発送の防止）。現在の処理済み：<b id="histCount">0</b> 件
+      　<button id="histRegister" type="button" class="ghost" style="padding:2px 8px;font-size:12px">この結果を処理済みに登録</button>
+      　<button id="histClear" type="button" class="ghost" style="padding:2px 8px;font-size:12px">履歴をクリア</button>
     </div>
   </div>
 
@@ -296,6 +302,16 @@ function earliestShip(){ // 最短出荷日＝本日（締切による翌日繰�
   const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());
 }
 function fmt(d){return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate();}
+// ===== 2重処理（同じ注文を再変換）検知用の処理済み履歴（localStorage）=====
+const HIST_KEY="yamatoB2_history_v1";
+function isoJST(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function loadHistory(){try{return JSON.parse(localStorage.getItem(HIST_KEY)||"{}")||{};}catch(e){return {};}}
+function saveHistory(h){try{localStorage.setItem(HIST_KEY,JSON.stringify(h));}catch(e){}}
+function pruneHistory(h){const cut=todayJST();cut.setDate(cut.getDate()-120);const cs=isoJST(cut);for(const k in h){if(h[k]<cs)delete h[k];}return h;} // 120日より古い履歴は自動削除
+function addToHistory(oids){const h=loadHistory();const d=isoJST(todayJST());(oids||[]).forEach(o=>{if(o&&!h[o])h[o]=d;});saveHistory(pruneHistory(h));updateHistCount();}
+function clearHistory(){if(!confirm("処理済み履歴をすべて消去します。よろしいですか？\n（消すと「2重処理の可能性」の検知ができなくなります）"))return;saveHistory({});updateHistCount();if(!$("result").classList.contains("hide"))doConvert();}
+function updateHistCount(){const el=$("histCount");if(el)el.textContent=Object.keys(loadHistory()).length;}
+function curOids(){const s=[];metaOids.forEach(l=>l.forEach(o=>{if(o)s.push(o);}));return s;} // 現在の結果の全注文番号
 function parseISODate(s){const m=(s||"").match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);return m?new Date(+m[1],+m[2]-1,+m[3]):null;}
 function shipFrom(deliv){const floor=earliestShip();if(!deliv)return floor;const d=new Date(deliv);d.setDate(d.getDate()-2);return d<floor?floor:d;}
 function slot(text){const t=text||"";if(/08:00|0812/.test(t))return"0812";if(/14:00|1416/.test(t))return"1416";if(/16:00|1618/.test(t))return"1618";if(/18:00|1820/.test(t))return"1820";if(/19:00|1921/.test(t))return"1921";if(/^812$/.test(t.trim()))return"0812";const n=t.trim();if(/^\d{4}$/.test(n))return n;return"";}
@@ -577,6 +593,7 @@ function mergeOrders(list){
 let loaded=[]; // {name, channel, orders}
 let rows=[];   // 95列配列
 let metaChan=[];
+let metaOids=[]; // 各伝票の注文番号（統合時は複数）
 
 const $=id=>document.getElementById(id);
 
@@ -597,6 +614,7 @@ function getSettings(){
 for(const k in SET_INPUTS){$(SET_INPUTS[k]).addEventListener("change",getSettings);}
 $("setReset").onclick=()=>{for(const k in SET_INPUTS)$(SET_INPUTS[k]).value=SENDER_DEFAULTS[k];getSettings();};
 loadSettings();
+updateHistCount(); // 2重処理チェックの履歴件数を表示
 
 // ===== 商品名の短縮ルール（localStorage 保存） =====
 function parseCustomRules(){
@@ -701,6 +719,7 @@ function doConvert(){
     excluded=before-merged.length;
   }
   rows=merged.map(buildRow);metaChan=merged.map(o=>o.ch);
+  metaOids=merged.map(o=>(o._orders&&o._orders.length?o._orders.slice():[o.oid]));
   renderTable(merged.length,all.length,excluded);
   $("result").classList.remove("hide");$("dl").classList.remove("hide");$("copy").classList.remove("hide");
 }
@@ -714,6 +733,16 @@ function zenLen(s){let n=0;for(const c of s)n+=(c.charCodeAt(0)>0xff?1:0.5);retu
 function renderTable(nShip,nLine,excluded){
   $("sum").innerHTML=`取り込み件数：<b>${nLine}</b> 明細 → <b>${nShip}</b> 伝票`
     +(excluded>0?` <span style="color:var(--sub)">（出荷予定日が先の <b style="color:var(--warn)">${excluded}</b> 伝票を除外）</span>`:"");
+  // 2重処理検知：現バッチ内で同じ注文番号が複数／過去に処理済み
+  const hist=loadHistory();const cnt={};metaOids.forEach(l=>l.forEach(o=>{if(o)cnt[o]=(cnt[o]||0)+1;}));
+  const dupInfo=metaOids.map(ids=>{const past=ids.filter(o=>hist[o]);const inBatch=ids.some(o=>cnt[o]>1);
+    return {past,inBatch,ids};});
+  const nDup=dupInfo.filter(d=>d.past.length||d.inBatch).length;
+  const dw=$("dupWarn");
+  if(nDup>0){dw.classList.remove("hide");
+    dw.innerHTML=`⚠ <b>2重処理の可能性：${nDup} 件</b>　同じ注文が今回の中に重複、または過去に変換済みです。<b>2重発送に注意</b>してください（管理番号セルが赤・詳細はマウスを重ねて表示）。問題なければそのまま進めてください。`;
+  }else{dw.classList.add("hide");dw.innerHTML="";}
+  updateHistCount();
   const show=[["",""],["A","管理番号"],["B","種類"],["C","ｸｰﾙ"],["E","出荷日"],["F","お届け日"],["G","時間"],["I","電話"],["K","〒"],["L","お届け先住所"],["M","建物名"],["P","お届け先"],["AB","品名1"],["AD","品名2"],["AH","代引額"],["AW","メール"]];
   let html="<thead><tr>"+show.map(([c,l])=>`<th>${l||"区分"}</th>`).join("")+"</tr></thead><tbody>";
   rows.forEach((r,ri)=>{
@@ -722,6 +751,9 @@ function renderTable(nShip,nLine,excluded){
       if(c===""){const ch=metaChan[ri];const color={AMAZON:"#e08a1e",YAHOO:"#c0392b",BASE:"#3a6ea5"}[ch]||"#999";
         html+=`<td><span class="chan" style="background:${color}">${ch}</span></td>`;return;}
       const v=r[colIdx(c)];let cls="",tip="";
+      if(c==="A"){const d=dupInfo[ri];
+        if(d&&d.past.length){cls="warn";tip="⚠2重処理の可能性：この注文は"+d.past.map(o=>hist[o]).join("/")+"に変換済みです。2重発送に注意してください";}
+        else if(d&&d.inBatch){cls="warn";tip="⚠2重処理の可能性：同じ注文番号が今回の中に複数あります。2重発送に注意してください";}}
       if(c==="M"&&zenLen(v)>16){cls="warn";tip="建物名が長すぎます（全角16文字まで）";}
       if(c==="P"&&zenLen(v)>16){cls="warn";tip="お届け先名が長すぎます（全角16文字まで）";}
       if(c==="AB"&&zenLen(v)>25){cls="warn";tip="品名1が長すぎます（全角25文字まで）";}
@@ -760,9 +792,13 @@ $("dl").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);
   const d=todayJST();a.download=`yamato_b2_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.csv`;
   a.click();
+  addToHistory(curOids()); // ダウンロード＝出荷確定とみなし処理済みに記録
 };
+$("histRegister").onclick=()=>{addToHistory(curOids());alert("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）。");};
+$("histClear").onclick=clearHistory;
 function copyDone(){$("copy").textContent="コピーしました ✓（テンプレに貼付）";
-  setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);}
+  setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);
+  addToHistory(curOids());} // コピー＝出荷確定とみなし処理済みに記録
 $("copy").onclick=async()=>{
   // プレーンテキストで貼るとExcelが日付をシリアル値に変えたり、コードの先頭0を落とす。
   // そこで各セルにmso-number-formatを指定したHTML表をクリップボードへ置く：
