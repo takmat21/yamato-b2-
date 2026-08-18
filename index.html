@@ -103,6 +103,8 @@ tr:nth-child(even) td{background:#fbf9f3}
 td[contenteditable]{outline:none}
 td[contenteditable]:focus{background:#fffbe6;box-shadow:inset 0 0 0 2px var(--accent)}
 td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
+td.dup-past{background:#fdecec!important;color:#c0392b;font-weight:700}
+td.dup-batch{background:#fff3e0!important;color:#d17b00;font-weight:700}
 .chan{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;color:#fff}
 .empty{color:#c9c1b2}
 .hide{display:none}
@@ -737,10 +739,16 @@ function renderTable(nShip,nLine,excluded){
   const hist=loadHistory();const cnt={};metaOids.forEach(l=>l.forEach(o=>{if(o)cnt[o]=(cnt[o]||0)+1;}));
   const dupInfo=metaOids.map(ids=>{const past=ids.filter(o=>hist[o]);const inBatch=ids.some(o=>cnt[o]>1);
     return {past,inBatch,ids};});
-  const nDup=dupInfo.filter(d=>d.past.length||d.inBatch).length;
+  const nBatch=dupInfo.filter(d=>d.inBatch).length;    // 今回の中で重複している伝票数
+  const nPast =dupInfo.filter(d=>d.past.length).length; // 過去に変換済みの注文を含む伝票数
   const dw=$("dupWarn");
-  if(nDup>0){dw.classList.remove("hide");
-    dw.innerHTML=`⚠ <b>2重処理の可能性：${nDup} 件</b>　同じ注文が今回の中に重複、または過去に変換済みです。<b>2重発送に注意</b>してください（管理番号セルが赤・詳細はマウスを重ねて表示）。問題なければそのまま進めてください。`;
+  if(nBatch>0||nPast>0){dw.classList.remove("hide");
+    const big=(n,c)=>`<span style="font-size:26px;font-weight:800;color:${c};vertical-align:-4px;margin:0 3px">${n}</span>`;
+    const tag=(t,c)=>`<span style="display:inline-block;background:${c};color:#fff;font-weight:700;font-size:11px;padding:2px 9px;border-radius:11px;margin-right:8px">${t}</span>`;
+    let lines="";
+    if(nBatch>0)lines+=`<div style="margin:5px 0">${tag("今回の中で重複","#d17b00")}${big(nBatch,"#d17b00")}件　<span style="font-size:12px;color:#666">（同じ注文番号が今回の変換内に複数）</span></div>`;
+    if(nPast>0) lines+=`<div style="margin:5px 0">${tag("過去に変換済み","#c0392b")}${big(nPast,"#c0392b")}件　<span style="font-size:12px;color:#666">（以前ダウンロード／コピー済みの注文）</span></div>`;
+    dw.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:2px">⚠ 2重処理の可能性があります</div>${lines}<div style="font-size:12px;margin-top:5px">管理番号セルを色分け表示中（<b style="color:#d17b00">オレンジ＝今回重複</b>／<b style="color:#c0392b">赤＝過去に変換済み</b>／マウスで詳細）。<b>2重発送にご注意ください。</b>問題なければそのまま進めてください。</div>`;
   }else{dw.classList.add("hide");dw.innerHTML="";}
   updateHistCount();
   const show=[["",""],["A","管理番号"],["B","種類"],["C","ｸｰﾙ"],["E","出荷日"],["F","お届け日"],["G","時間"],["I","電話"],["K","〒"],["L","お届け先住所"],["M","建物名"],["P","お届け先"],["AB","品名1"],["AD","品名2"],["AH","代引額"],["AW","メール"]];
@@ -752,8 +760,8 @@ function renderTable(nShip,nLine,excluded){
         html+=`<td><span class="chan" style="background:${color}">${ch}</span></td>`;return;}
       const v=r[colIdx(c)];let cls="",tip="";
       if(c==="A"){const d=dupInfo[ri];
-        if(d&&d.past.length){cls="warn";tip="⚠2重処理の可能性：この注文は"+d.past.map(o=>hist[o]).join("/")+"に変換済みです。2重発送に注意してください";}
-        else if(d&&d.inBatch){cls="warn";tip="⚠2重処理の可能性：同じ注文番号が今回の中に複数あります。2重発送に注意してください";}}
+        if(d&&d.past.length){cls="dup-past";tip="⚠過去に変換済み：この注文は"+d.past.map(o=>hist[o]).join("/")+"に変換済みです。2重発送に注意してください";}
+        else if(d&&d.inBatch){cls="dup-batch";tip="⚠今回の中で重複：同じ注文番号が今回の変換内に複数あります。2重発送に注意してください";}}
       if(c==="M"&&zenLen(v)>16){cls="warn";tip="建物名が長すぎます（全角16文字まで）";}
       if(c==="P"&&zenLen(v)>16){cls="warn";tip="お届け先名が長すぎます（全角16文字まで）";}
       if(c==="AB"&&zenLen(v)>25){cls="warn";tip="品名1が長すぎます（全角25文字まで）";}
