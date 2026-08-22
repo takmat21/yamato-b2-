@@ -172,6 +172,7 @@ td.dup-batch{background:#fff3e0!important;color:#d17b00;font-weight:700}
       <button class="ghost" id="reload" type="button" title="ページを再読み込みして最初からやり直す">🔄 リロード</button>
       <button class="ghost hide" id="dl">CSVをダウンロード（B2取り込み用）</button>
       <button class="ghost hide" id="copy">クリップボードにコピー（テンプレに貼付）</button>
+      <button class="ghost hide" id="copyNew" title="過去にダウンロード／コピー済みの注文を除いて、未処理の注文だけをコピーします">過去分を除いてコピー（未処理のみ）</button>
     </div>
   </div>
 
@@ -723,7 +724,7 @@ function doConvert(){
   rows=merged.map(buildRow);metaChan=merged.map(o=>o.ch);
   metaOids=merged.map(o=>(o._orders&&o._orders.length?o._orders.slice():[o.oid]));
   renderTable(merged.length,all.length,excluded);
-  $("result").classList.remove("hide");$("dl").classList.remove("hide");$("copy").classList.remove("hide");
+  $("result").classList.remove("hide");$("dl").classList.remove("hide");$("copy").classList.remove("hide");$("copyNew").classList.remove("hide");
 }
 $("run").onclick=doConvert;
 $("reload").onclick=()=>location.reload(); // ページを再読み込みして最初からやり直す
@@ -804,10 +805,11 @@ $("dl").onclick=()=>{
 };
 $("histRegister").onclick=()=>{addToHistory(curOids());alert("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）。");};
 $("histClear").onclick=clearHistory;
-function copyDone(){$("copy").textContent="コピーしました ✓（テンプレに貼付）";
-  setTimeout(()=>$("copy").textContent="クリップボードにコピー（テンプレに貼付）",2000);
-  addToHistory(curOids());} // コピー＝出荷確定とみなし処理済みに記録
-$("copy").onclick=async()=>{
+const COPY_LABEL="クリップボードにコピー（テンプレに貼付）";
+const COPYNEW_LABEL="過去分を除いてコピー（未処理のみ）";
+function flashCopy(btn,label){btn.textContent="コピーしました ✓";setTimeout(()=>btn.textContent=label,2000);}
+// srcRows=コピー対象の行配列, oidsForHist=履歴に登録する注文番号, done=成功時コールバック
+async function copyToClipboard(srcRows,oidsForHist,done){
   // プレーンテキストで貼るとExcelが日付をシリアル値に変えたり、コードの先頭0を落とす。
   // そこで各セルにmso-number-formatを指定したHTML表をクリップボードへ置く：
   //  ・コード等は文字列書式(\@)で先頭0を保持／・日付列は日付書式で「本物の日付」として貼り付け。
@@ -824,14 +826,14 @@ $("copy").onclick=async()=>{
   // 残りは文字列書式(\@)で先頭ゼロ(顧客コード等)を保持。"最短日"等の文字列はそのまま文字列扱いになる。
   const DATE_COLS=new Set([colIdx("E"),colIdx("F")]);
   let html=xlHead+'<table>';
-  rows.forEach(r=>{
+  srcRows.forEach(r=>{
     html+='<tr>'+r.map((c,ci)=>{
       const nf=DATE_COLS.has(ci)?'yyyy\\/m\\/d':'\\@';
       return `<td style="mso-number-format:'${nf}';white-space:nowrap;border:none">${esc(c)||'&nbsp;'}</td>`;
     }).join('')+'</tr>';
   });
   html+='</table></body></html>';
-  const tsv=rows.map(r=>r.map(c=>String(c).replace(/[\r\n]+/g," ")).join("\t")).join("\r\n");
+  const tsv=srcRows.map(r=>r.map(c=>String(c).replace(/[\r\n]+/g," ")).join("\t")).join("\r\n");
 
   // ① 最新のClipboard API（text/htmlで文字列書式を保持）。execCommand非依存で確実。
   try{
@@ -840,7 +842,7 @@ $("copy").onclick=async()=>{
         "text/html":new Blob([html],{type:"text/html"}),
         "text/plain":new Blob([tsv],{type:"text/plain"})
       })]);
-      copyDone();return;
+      done();return;
     }
   }catch(e){/* ②へフォールバック */}
 
@@ -855,12 +857,24 @@ $("copy").onclick=async()=>{
     const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);
     const ok=document.execCommand('copy');
     sel.removeAllRanges();document.body.removeChild(div);
-    if(ok){copyDone();return;}
+    if(ok){done();return;}
   }catch(e){/* ③へ */}
 
   // ③ 最終フォールバック：プレーンテキスト（※この場合のみExcelが日付を変換する可能性あり）
-  navigator.clipboard.writeText(tsv).then(copyDone,
+  navigator.clipboard.writeText(tsv).then(done,
     ()=>alert("コピーに失敗しました。ブラウザの権限をご確認ください。"));
+}
+// 通常コピー：全件
+$("copy").onclick=()=>copyToClipboard(rows,curOids(),()=>{flashCopy($("copy"),COPY_LABEL);addToHistory(curOids());});
+// 過去に変換済みを除いてコピー：履歴にある注文番号を含む伝票を除外
+$("copyNew").onclick=()=>{
+  const hist=loadHistory();
+  const keep=rows.map((r,ri)=>ri).filter(ri=>!(metaOids[ri]||[]).some(o=>hist[o]));
+  const skipped=rows.length-keep.length;
+  if(!keep.length){alert("コピーできる注文がありません（"+rows.length+"件すべてが過去に変換済みです）。");return;}
+  const srcRows=keep.map(ri=>rows[ri]);const oids=[];keep.forEach(ri=>(metaOids[ri]||[]).forEach(o=>{if(o)oids.push(o);}));
+  copyToClipboard(srcRows,oids,()=>{flashCopy($("copyNew"),COPYNEW_LABEL);addToHistory(oids);
+    if(skipped>0)setTimeout(()=>alert("過去に変換済みの "+skipped+" 件を除いて、"+keep.length+" 件をコピーしました。"),50);});
 };
 </script>
 </body>
