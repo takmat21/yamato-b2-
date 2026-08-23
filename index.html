@@ -755,7 +755,7 @@ function renderTable(nShip,nLine,excluded){
     if(nPast>0) lines+=`<div style="margin:5px 0">${tag("過去に変換済み","#c0392b")}${big(nPast,"#c0392b")}件　<span style="font-size:12px;color:#666">（以前ダウンロード／コピー済みの注文）</span></div>`;
     dw.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:2px">⚠ 2重処理の可能性があります</div>${lines}<div style="font-size:12px;margin-top:5px">管理番号セルを色分け表示中（<b style="color:#d17b00">オレンジ＝今回重複</b>／<b style="color:#c0392b">赤＝過去に変換済み</b>／マウスで詳細）。<b>2重発送にご注意ください。</b>問題なければそのまま進めてください。</div>`;
   }else{dw.classList.add("hide");dw.innerHTML="";}
-  updateHistCount();
+  updateHistCount();refreshCopyNewLabel();
   const show=[["",""],["A","管理番号"],["B","種類"],["C","ｸｰﾙ"],["E","出荷日"],["F","お届け日"],["G","時間"],["I","電話"],["K","〒"],["L","お届け先住所"],["M","建物名"],["P","お届け先"],["AB","品名1"],["AD","品名2"],["AH","代引額"],["AW","メール"]];
   let html="<thead><tr>"+show.map(([c,l])=>`<th>${l||"区分"}</th>`).join("")+"</tr></thead><tbody>";
   rows.forEach((r,ri)=>{
@@ -806,11 +806,15 @@ $("dl").onclick=()=>{
   const d=todayJST();a.download=`yamato_b2_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.csv`;
   a.click();
   addToHistory(curOids()); // ダウンロード＝出荷確定とみなし処理済みに記録
+  refreshCopyNewLabel();
 };
-$("histRegister").onclick=()=>{addToHistory(curOids());alert("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）。");};
+$("histRegister").onclick=()=>{addToHistory(curOids());refreshCopyNewLabel();alert("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）。");};
 $("histClear").onclick=clearHistory;
 const COPY_LABEL="クリップボードにコピー（テンプレに貼付）";
-const COPYNEW_LABEL="過去分を除いてコピー（未処理のみ）";
+// 未処理（過去に変換済みでない）伝票の件数を数えてボタン名に反映
+function nUnprocessed(){const hist=loadHistory();let n=0;metaOids.forEach(ids=>{if(!(ids||[]).some(o=>hist[o]))n++;});return n;}
+function copyNewLabelText(){return `過去分を除いてコピー（未処理 ${nUnprocessed()} 件）`;}
+function refreshCopyNewLabel(){const b=$("copyNew");if(b)b.textContent=copyNewLabelText();}
 function flashCopy(btn,label){btn.textContent="コピーしました ✓";setTimeout(()=>btn.textContent=label,2000);}
 // srcRows=コピー対象の行配列, oidsForHist=履歴に登録する注文番号, done=成功時コールバック
 async function copyToClipboard(srcRows,oidsForHist,done){
@@ -869,7 +873,7 @@ async function copyToClipboard(srcRows,oidsForHist,done){
     ()=>alert("コピーに失敗しました。ブラウザの権限をご確認ください。"));
 }
 // 通常コピー：全件
-$("copy").onclick=()=>copyToClipboard(rows,curOids(),()=>{flashCopy($("copy"),COPY_LABEL);addToHistory(curOids());});
+$("copy").onclick=()=>copyToClipboard(rows,curOids(),()=>{flashCopy($("copy"),COPY_LABEL);addToHistory(curOids());refreshCopyNewLabel();});
 // 過去に変換済みを除いてコピー：履歴にある注文番号を含む伝票を除外
 $("copyNew").onclick=()=>{
   const hist=loadHistory();
@@ -877,7 +881,7 @@ $("copyNew").onclick=()=>{
   const skipped=rows.length-keep.length;
   if(!keep.length){alert("コピーできる注文がありません（"+rows.length+"件すべてが過去に変換済みです）。");return;}
   const srcRows=keep.map(ri=>rows[ri]);const oids=[];keep.forEach(ri=>(metaOids[ri]||[]).forEach(o=>{if(o)oids.push(o);}));
-  copyToClipboard(srcRows,oids,()=>{flashCopy($("copyNew"),COPYNEW_LABEL);addToHistory(oids);
+  copyToClipboard(srcRows,oids,()=>{addToHistory(oids);flashCopy($("copyNew"),copyNewLabelText());
     if(skipped>0)setTimeout(()=>alert("過去に変換済みの "+skipped+" 件を除いて、"+keep.length+" 件をコピーしました。"),50);});
 };
 </script>
