@@ -280,13 +280,16 @@ function decodeFile(buf){
   if(lim>0&&nul>lim*0.1)return decFrom(u8,'UTF16LE');
   // ① 厳密UTF-8として妥当ならUTF-8で確定
   if(isValidUTF8(u8))return decFrom(u8,'UTF8');
-  // ② SJIS / EUC-JP を採点。Encoding.detectが支持する方を加点して誤判定を防ぐ
+  // ② 日本語レガシーは Shift-JIS を基準にする。Amazon/Yahoo等の注文レポートは常にSJISで、
+  //    EUC-JPはまず使われない。一方、SJISのバイト列をEUC-JPで読むと化け漢字が漢字範囲に多く
+  //    入り、採点上SJISを僅差で上回ることがある（Encoding.detectが"UNICODE"等を返して加点が
+  //    効かないと、この僅差でEUC-JPが誤選択され全行化ける）。そこでEUC-JPは「detectが明確に
+  //    EUCJPと判定し、かつ得点もSJISを上回る」場合のみ採用し、それ以外は常にSJISを採用する。
   let det="";try{det=Encoding.detect(u8)||"";}catch(e){det="";}
-  let best=null,bestScore=-Infinity;
-  for(const e of ['SJIS','EUCJP']){const t=decFrom(u8,e);if(t==null)continue;
-    let sc=textScore(t);if(e===det)sc+=1000;
-    if(sc>bestScore){bestScore=sc;best=t;}}
-  return best!=null?best:decFrom(u8,'SJIS');
+  const sj=decFrom(u8,'SJIS'),eu=decFrom(u8,'EUCJP');
+  if(sj==null)return eu!=null?eu:decFrom(u8,'UTF8');
+  if(det==='EUCJP'&&eu!=null&&textScore(eu)>textScore(sj))return eu;
+  return sj;
 }
 function splitLines(t){return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.length>0);}
 function parseDelim(line,delim){
