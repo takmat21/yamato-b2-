@@ -107,6 +107,7 @@ td[contenteditable]:focus{background:#fffbe6;box-shadow:inset 0 0 0 2px var(--ac
 td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
 td.dup-past{background:#fdecec!important;color:#c0392b;font-weight:700}
 td.dup-batch{background:#fff3e0!important;color:#d17b00;font-weight:700}
+td.notecell{background:#fffbe0!important;color:#8a6d00;font-weight:600}
 .chan{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;color:#fff}
 .empty{color:#c9c1b2}
 .hide{display:none}
@@ -507,6 +508,7 @@ function buildRow(o){
    else if(its.length>=2)n1=its.map(it=>(it.name||"")+(it.qty||1)).join(""); // 2種以上: 略号+数量を連結
    setC(r,"AB",n1);
    if(its.length>=1)setC(r,"AD",String(total));}               // 品名2: 合計数量
+  if(o.note)setC(r,"AE",o.note);                                // 荷扱い1: 購入者の要望/備考（BASE備考・Yahoo要望）
   setC(r,"AF","ナマモノ");
   if(o.cod)setC(r,"AH",o.cod);
   if(!BLANK_BILL){setC(r,"AN",SENDER.bill);setC(r,"AO",SENDER.cls);}
@@ -553,6 +555,7 @@ function parseYahoo(text,abbr){
       deliv:parseISODate(g(row,"ShipRequestDate")),slot:slot(g(row,"ShipRequestTime")),
       items:splitLItems(g(row,"Title"),g(row,"QuantityDetail"),abbr), // L1=…&L2=… を分解
       cod:/代引/.test(g(row,"PayMethodName"))?(parseInt(g(row,"TotalPrice")||"0",10)||0):0,
+      note:g(row,"Notes")||g(row,"要望")||g(row,"BuyerComments")||g(row,"備考")||"", // 購入者の要望→荷扱い1
       email:g(row,"BillMailAddress")});
   }
   return out;
@@ -576,6 +579,7 @@ function parseBase(text,abbr){
       item:shortenName(g(row,"商品名"),abbr),
       items:[{name:shortenName(g(row,"商品名"),abbr),qty:qtyNum(g(row,"数量"))}],
       cod:/代引/.test(g(row,"支払い方法"))?(parseInt((g(row,"合計金額")||"").replace(/[^0-9]/g,"")||"0",10)||0):0,
+      note:g(row,"備考")||g(row,"配送についての備考")||g(row,"購入者からの要望")||g(row,"お客様からのご要望")||"", // 備考→荷扱い1
       email:g(row,"メールアドレス(請求先)")});
   }
   return out;
@@ -591,7 +595,8 @@ function mergeOrders(list){
       const same=norm(a.zip)===norm(b.zip)&&norm(a.addr)===norm(b.addr)&&norm(a.bldg)===norm(b.bldg)
         &&norm(a.name)===norm(b.name)&&norm(a.tel)===norm(b.tel)
         &&fmt(a.deliv||todayJST())===fmt(b.deliv||todayJST());
-      if(same){used[j]=true;(b.items||[]).forEach(x=>items.push({...x}));ords.push(b.oid);if(b.cod)base.cod=(base.cod||0)+b.cod;}
+      if(same){used[j]=true;(b.items||[]).forEach(x=>items.push({...x}));ords.push(b.oid);if(b.cod)base.cod=(base.cod||0)+b.cod;
+        if(b.note&&norm(b.note)!==norm(base.note))base.note=(base.note?base.note+" / ":"")+b.note;} // 統合時は要望も連結
     }
     const agg=[];items.forEach(it=>{const f=agg.find(a=>a.name===it.name);if(f)f.qty+=(it.qty||1);else agg.push({...it});});
     base.items=agg;base._orders=ords;used[i]=true;res.push(base);
@@ -759,7 +764,7 @@ function renderTable(nShip,nLine,excluded){
     dw.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:2px">⚠ 2重処理の可能性があります</div>${lines}<div style="font-size:12px;margin-top:5px">管理番号セルを色分け表示中（<b style="color:#d17b00">オレンジ＝今回重複</b>／<b style="color:#c0392b">赤＝過去に変換済み</b>／マウスで詳細）。<b>2重発送にご注意ください。</b>問題なければそのまま進めてください。</div>`;
   }else{dw.classList.add("hide");dw.innerHTML="";}
   updateHistCount();refreshCopyNewLabel();
-  const show=[["",""],["A","管理番号"],["B","種類"],["C","ｸｰﾙ"],["E","出荷日"],["F","お届け日"],["G","時間"],["I","電話"],["K","〒"],["L","お届け先住所"],["M","建物名"],["P","お届け先"],["AB","品名1"],["AD","品名2"],["AH","代引額"],["AW","メール"]];
+  const show=[["",""],["A","管理番号"],["B","種類"],["C","ｸｰﾙ"],["E","出荷日"],["F","お届け日"],["G","時間"],["I","電話"],["K","〒"],["L","お届け先住所"],["M","建物名"],["P","お届け先"],["AB","品名1"],["AD","品名2"],["AE","要望/備考"],["AH","代引額"],["AW","メール"]];
   let html="<thead><tr>"+show.map(([c,l])=>`<th>${l||"区分"}</th>`).join("")+"</tr></thead><tbody>";
   rows.forEach((r,ri)=>{
     html+="<tr>";
@@ -770,6 +775,7 @@ function renderTable(nShip,nLine,excluded){
       if(c==="A"){const d=dupInfo[ri];
         if(d&&d.past.length){cls="dup-past";tip="⚠過去に変換済み：この注文は"+d.past.map(o=>hist[o]).join("/")+"に変換済みです。2重発送に注意してください";}
         else if(d&&d.inBatch){cls="dup-batch";tip="⚠今回の中で重複：同じ注文番号が今回の変換内に複数あります。2重発送に注意してください";}}
+      if(c==="AE"&&v){cls="notecell";tip="購入者の要望／備考です。出荷前にご確認ください（B2の荷扱い1は文字数制限があり、長い内容は取込時に切れる場合があります）";}
       if(c==="M"&&zenLen(v)>16){cls="warn";tip="建物名が長すぎます（全角16文字まで）";}
       if(c==="P"&&zenLen(v)>16){cls="warn";tip="お届け先名が長すぎます（全角16文字まで）";}
       if(c==="AB"&&zenLen(v)>25){cls="warn";tip="品名1が長すぎます（全角25文字まで）";}
