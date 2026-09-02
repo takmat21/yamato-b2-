@@ -108,6 +108,7 @@ td.warn{background:var(--warnbg)!important;color:var(--warn);font-weight:700}
 td.dup-past{background:#fdecec!important;color:#c0392b;font-weight:700}
 td.dup-batch{background:#fff3e0!important;color:#d17b00;font-weight:700}
 td.notecell{background:#fffbe0!important;color:#8a6d00;font-weight:600}
+td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
 .chan{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;color:#fff}
 .empty{color:#c9c1b2}
 .hide{display:none}
@@ -184,6 +185,7 @@ td.notecell{background:#fffbe0!important;color:#8a6d00;font-weight:600}
   <div class="card hide" id="result">
     <p class="summary" id="sum"></p>
     <div id="dupWarn" class="hide" style="background:#fdecec;border:1px solid #e0b4b4;color:#a12;padding:8px 10px;border-radius:6px;font-size:13px;margin:6px 0"></div>
+    <div id="okihaiWarn" class="hide" style="background:#f3e8ff;border:1px solid #d3b8f0;color:#6a1fa8;padding:8px 10px;border-radius:6px;font-size:13px;margin:6px 0"></div>
     <p class="note">※ 赤いセルは要確認（住所が長い＝都道府県4／市区郡町村12／町・番地16字超、建物名・お届け先名が16字超、品名1が25字超、到着日が「最短日」、管理番号＝2重処理の可能性など。マウスを重ねると理由を表示）。セルは直接クリックして修正できます。修正後にダウンロード／コピーすると反映されます。なお建物名の先頭にある番地（例 6-15-1）は自動で住所側へ繰り上げ、建物名が16字を超える分も町・番地側の空きへ自動で送って収めます（合計32字を超える場合のみ赤で警告）。</p>
     <div class="tablewrap"><table id="tbl"></table></div>
     <div class="hint">
@@ -764,6 +766,13 @@ function renderTable(nShip,nLine,excluded){
     dw.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:2px">⚠ 2重処理の可能性があります</div>${lines}<div style="font-size:12px;margin-top:5px">管理番号セルを色分け表示中（<b style="color:#d17b00">オレンジ＝今回重複</b>／<b style="color:#c0392b">赤＝過去に変換済み</b>／マウスで詳細）。<b>2重発送にご注意ください。</b>問題なければそのまま進めてください。</div>`;
   }else{dw.classList.add("hide");dw.innerHTML="";}
   updateHistCount();refreshCopyNewLabel();
+  // 置き配など特別配送指定が住所欄に紛れている注文を警告（冷凍なまもの＝品質劣化リスク）
+  const OKI=/置\s*き?\s*配|おき配|オキ配/;
+  const okiN=rows.filter(r=>OKI.test(r[colIdx("L")]||"")||OKI.test(r[colIdx("M")]||"")||OKI.test(r[colIdx("P")]||"")).length;
+  const ow=$("okihaiWarn");
+  if(okiN>0){ow.classList.remove("hide");
+    ow.innerHTML=`⚠ <b>置き配の指定あり：${okiN} 件</b>　住所欄に「置き配」等が含まれています。<b>冷凍品（なまもの）は置き配で品質劣化のおそれ</b>があります。宅配ボックス可否・時間帯・お客様への確認など、対応と住所の整形をご確認ください。`;
+  }else{ow.classList.add("hide");ow.innerHTML="";}
   const show=[["",""],["A","管理番号"],["B","種類"],["C","ｸｰﾙ"],["E","出荷日"],["F","お届け日"],["G","時間"],["I","電話"],["K","〒"],["L","お届け先住所"],["M","建物名"],["P","お届け先"],["AB","品名1"],["AD","品名2"],["AE","要望/備考"],["AH","代引額"],["AW","メール"]];
   let html="<thead><tr>"+show.map(([c,l])=>`<th>${l||"区分"}</th>`).join("")+"</tr></thead><tbody>";
   rows.forEach((r,ri)=>{
@@ -787,6 +796,7 @@ function renderTable(nShip,nLine,excluded){
         else if(ambiguousWard(v)){cls="warn";tip="政令市の市名が不足（例:大阪市/堺市など判別不可）。市名を手動で追記してください";}
         else if(ov.length){cls="warn";tip="住所が長すぎます："+ov.join("／")+" 超過";}}
       if((c==="F")&&v==="最短日"){cls="warn";tip="お届け日が最短日です";}
+      if((c==="L"||c==="M"||c==="P")&&OKI.test(v)){cls="okihai";tip="⚠置き配の指定が住所欄に含まれています。冷凍品(なまもの)は置き配で品質劣化のおそれ。住所の整形と対応をご確認ください";}
       html+=`<td contenteditable data-row="${ri}" data-col="${c}" class="${cls}"${tip?` title="${escapeHtml(tip)}"`:""}>${v?escapeHtml(v):'<span class="empty">—</span>'}</td>`;
     });
     html+="</tr>";
