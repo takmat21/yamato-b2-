@@ -369,9 +369,13 @@ function splitLItems(title,qtyField,abbr){ // 商品名と数量を対応付け�
   const qmap={};splitLfield(qtyField).forEach(q=>{qmap[q.n]=qtyNum(q.v);});
   return titles.map(t=>({name:shortenName(t.v,abbr),qty:(qmap[t.n]!=null?qmap[t.n]:qtyNum(qtyField))}));
 }
-function normPhone(s){ // 国際表記 +81 を国内 0 に直す（ヤマトは+81でエラー）
-  let p=String(s==null?"":s).trim().replace(/^['’]/,"").replace(/[ 　]/g,"");
-  p=p.replace(/^(\+|＋)?81(?=\d)/,"0").replace(/[＋+]/g,"");
+function normPhone(s){ // ヤマトB2向けに電話番号を数字のみへ整形（括弧()・ハイフン・空白除去、全角→半角、+81→0）
+  let raw=String(s==null?"":s).trim().replace(/^['’]/,"");
+  raw=raw.replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-0xFEE0)).replace(/[＋]/g,"+"); // 全角数字/＋→半角
+  const intl=/^\+/.test(raw);        // 先頭が + なら国際表記
+  let p=raw.replace(/\D/g,"");        // 数字以外（()・-・空白・全角括弧など）を除去
+  if(intl&&/^81/.test(p))p="0"+p.slice(2);                       // +81… → 0…
+  else if(!intl&&p.length>=11&&/^81[1-9]/.test(p))p="0"+p.slice(2); // +無しの81始まり国際表記も救済
   return p;
 }
 function fmtItem(it){if(!it||!it.name)return "";const q=(it.qty==null?1:it.qty);return (it.name+" "+q).replace(/\s+/g," ").trim();}
@@ -796,6 +800,7 @@ function renderTable(nShip,nLine,excluded){
         else if(ambiguousWard(v)){cls="warn";tip="政令市の市名が不足（例:大阪市/堺市など判別不可）。市名を手動で追記してください";}
         else if(ov.length){cls="warn";tip="住所が長すぎます："+ov.join("／")+" 超過";}}
       if((c==="F")&&v==="最短日"){cls="warn";tip="お届け日が最短日です";}
+      if(c==="I"&&v&&(v.length<10||v.length>11)){cls="warn";tip="電話番号の桁数が不正の可能性（通常10〜11桁）。内容をご確認ください";}
       if((c==="L"||c==="M"||c==="P")&&OKI.test(v)){cls="okihai";tip="⚠置き配の指定が住所欄に含まれています。冷凍品(なまもの)は置き配で品質劣化のおそれ。住所の整形と対応をご確認ください";}
       html+=`<td contenteditable data-row="${ri}" data-col="${c}" class="${cls}"${tip?` title="${escapeHtml(tip)}"`:""}>${v?escapeHtml(v):'<span class="empty">—</span>'}</td>`;
     });
