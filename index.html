@@ -93,6 +93,8 @@ button{font:inherit;border:0;border-radius:10px;padding:11px 18px;cursor:pointer
 .ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
 @keyframes refreshPulse{0%,100%{box-shadow:0 0 0 0 rgba(42,122,91,.45)}50%{box-shadow:0 0 0 7px rgba(42,122,91,0)}}
 .needrefresh{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;animation:refreshPulse 1.3s ease-in-out infinite}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(10px);background:#333;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9999;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .ghost.sm{padding:7px 12px;font-size:12px;margin-top:12px}
 .opts{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--sub)}
 .opts label{display:flex;align-items:center;gap:6px;cursor:pointer}
@@ -616,6 +618,9 @@ function mergeOrders(list){
 let loaded=[]; // {name, channel, orders}
 let hasExported=false; // 一度でもDL/コピーしたら true（次の注文前のリフレッシュ押し忘れ防止）
 function markExported(){hasExported=true;const b=$("reload");if(b){b.classList.add("needrefresh");b.textContent="🔄 リフレッシュ（次の注文の前に押す）";}}
+// OK不要で自動的に消えるトースト通知（情報表示用。確認が必要な警告はconfirm/alertのまま）
+function toast(msg,ms){let t=$("toast");if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),ms||2800);}
 let rows=[];   // 95列配列
 let metaChan=[];
 let metaOids=[]; // 各伝票の注文番号（統合時は複数）
@@ -842,7 +847,7 @@ $("dl").onclick=()=>{
   addToHistory(curOids()); // ダウンロード＝出荷確定とみなし処理済みに記録
   refreshCopyNewLabel();markExported();
 };
-$("histRegister").onclick=()=>{addToHistory(curOids());refreshCopyNewLabel();alert("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）。");};
+$("histRegister").onclick=()=>{addToHistory(curOids());refreshCopyNewLabel();toast("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）");};
 $("histClear").onclick=clearHistory;
 const COPY_LABEL="クリップボードにコピー（テンプレに貼付）";
 // 未処理（過去に変換済みでない）伝票の件数を数えてボタン名に反映
@@ -913,10 +918,10 @@ $("copyNew").onclick=()=>{
   const hist=loadHistory();
   const keep=rows.map((r,ri)=>ri).filter(ri=>!(metaOids[ri]||[]).some(o=>hist[o]));
   const skipped=rows.length-keep.length;
-  if(!keep.length){alert("コピーできる注文がありません（"+rows.length+"件すべてが過去に変換済みです）。");return;}
+  if(!keep.length){toast("コピーできる注文がありません（"+rows.length+"件すべて過去に変換済み）");return;}
   const srcRows=keep.map(ri=>rows[ri]);const oids=[];keep.forEach(ri=>(metaOids[ri]||[]).forEach(o=>{if(o)oids.push(o);}));
   copyToClipboard(srcRows,oids,()=>{addToHistory(oids);flashCopy($("copyNew"),copyNewLabelText());markExported();
-    if(skipped>0)setTimeout(()=>alert("過去に変換済みの "+skipped+" 件を除いて、"+keep.length+" 件をコピーしました。"),50);});
+    if(skipped>0)toast("過去に変換済みの "+skipped+" 件を除いて "+keep.length+" 件をコピーしました");});
 };
 </script>
 </body>
