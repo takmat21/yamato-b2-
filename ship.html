@@ -142,7 +142,7 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
 <div class="wrap">
   <header>
     <h1>ZAZOU 出荷アプリ</h1>
-    <p>注文のダウンロード（拡張にお願い）→ B2用CSVづくり →（次の段階）出荷通知ファイル。注文の中身はこのブラウザの中だけで扱い、外には送りません。</p>
+    <p>注文のダウンロード（拡張にお願い）→ B2用CSVづくり → 出荷通知（拡張にお願い）。注文の中身はこのブラウザの中だけで扱い、外には送りません。</p>
   </header>
 
   <div class="card" id="dlCard">
@@ -245,8 +245,20 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
   </div>
 
   <div class="card" id="notifyCard">
-    <h2 style="font-size:16px;margin:0">⑤ 出荷通知ファイル（次の段階・準備中）</h2>
-    <p class="soon">B2クラウドの発行済みデータ（CSV）を入れると、Amazon・Yahoo!・BASEそれぞれの出荷通知用ファイルを作れるようにする予定です。送信は手で行います。</p>
+    <h2 style="font-size:16px;margin:0">⑤ 出荷通知（拡張にお願いする）</h2>
+    <p class="note">伝票を発行したら、B2用Excelの今日出荷した行をコピーして貼り付け（行まるごとでも、A列〈お客様管理番号〉とD列〈伝票番号〉だけでもOK）。注文番号の形で店を見分けて、拡張に貼る出荷通知の指示文を作ります。</p>
+    <label class="fld">今日出荷した行
+      <textarea id="ntIn" placeholder="807AC36C739CFD07&#9;0&#9;1&#9;391587936460 …" autocomplete="off" style="min-height:110px"></textarea>
+    </label>
+    <div class="btnrow" style="align-items:center">
+      <label class="note" style="margin:0">出荷日 <input type="date" id="ntDate" style="font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)"></label>
+      <button class="primary" id="ntCopy" type="button" disabled>指示文をコピー</button>
+      <button class="ghost sm" id="ntClear" type="button">クリア</button>
+    </div>
+    <div class="note" id="ntSum"></div>
+    <details style="margin-top:8px"><summary class="note" style="cursor:pointer">作った指示文を見る</summary>
+      <textarea id="ntOut" readonly style="width:100%;margin-top:8px;min-height:220px"></textarea>
+    </details>
   </div>
   <div class="card">
     <div style="font-weight:600;font-size:14px">要望・フィードバック</div>
@@ -1024,6 +1036,68 @@ $("copyNew").onclick=()=>{
     sel.forEach(k=>{const b=document.createElement("button");b.type="button";b.className="primary";b.textContent=SHORT[k]+"を開いてコピー";b.onclick=()=>openAndCopy(k,b);w.appendChild(b);});
   }
   draw();
+})();
+// ===== ⑤ 出荷通知：B2用Excelの行 → 拡張への指示文（2026/11/9〜）=====
+(function(){
+  const $=id=>document.getElementById(id);
+  const inp=$("ntIn"),out=$("ntOut"),btn=$("ntCopy"),sum=$("ntSum"),dt=$("ntDate");
+  const pad=n=>String(n).padStart(2,"0");
+  const t=new Date();dt.value=t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate());
+  const z2h=s=>String(s||"").replace(/[０-９Ａ-Ｚａ-ｚ－]/g,c=>c==="－"?"-":String.fromCharCode(c.charCodeAt(0)-0xFEE0)).trim();
+  function storeOf(v){
+    if(/^\d{3}-\d{7}-\d{7}$/.test(v))return"AMAZON";
+    if(/^[0-9A-F]{16}$/i.test(v))return"BASE";
+    if(/^\d{8}$/.test(v))return"YAHOO";
+    return"";
+  }
+  function parse(text){
+    const list=[],seen=new Set(),bad=[];
+    text.replace(/\r/g,"").split("\n").forEach(line=>{
+      if(!line.trim())return;
+      const cells=line.split("\t").map(z2h);
+      let oid="",trk="";
+      for(const c of cells){if(!oid&&storeOf(c)){oid=c;continue;}
+        const d=c.replace(/-/g,"");if(!trk&&/^\d{12}$/.test(d))trk=d;}
+      if(!oid&&!trk)return; // 見出し行などは黙って飛ばす
+      if(!oid||!trk){bad.push(line.trim().slice(0,40));return;}
+      const key=oid+"|"+trk;if(seen.has(key))return;seen.add(key);
+      list.push({store:storeOf(oid),oid,trk});
+    });
+    return {list,bad};
+  }
+  function build(list,date){
+    const d=date.replace(/-/g,"/");
+    const by=k=>list.filter(x=>x.store===k);
+    const L=["今日（"+d+"）出荷した"+list.length+"件の出荷通知を入力してください。","配送会社はすべて「ヤマト運輸（宅急便）」、出荷日は"+d+"です。"];
+    const a=by("AMAZON"),y=by("YAHOO"),b=by("BASE");
+    if(a.length){L.push("","【Amazon】セラーセントラル → 注文管理 → 注文を検索 →「出荷通知を送信」");a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
+    if(y.length){L.push("","【Yahoo!ショッピング】ストアクリエイターPro → 注文管理 → 注文番号で検索");y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk+"、配送会社 ヤマト運輸、出荷ステータス「出荷済み」"));}
+    if(b.length){L.push("","【BASE】注文管理 → 注文番号で検索");b.forEach(x=>L.push("・"+x.oid+"　配送業者 ヤマト運輸、追跡番号 "+x.trk+"、「発送済み」にする"));}
+    L.push("","決まり：",
+      "・1件ずつ、確定・送信ボタンの手前まで入力して止まり、入力内容を報告する（押すのは私）",
+      "・注文番号と追跡番号の組み合わせを、画面で必ず照らし合わせる",
+      "・見つからない注文や、すでに通知済みの注文があれば、何もせず報告する",
+      "・ここに書いていない注文には触らない",
+      "・購入者の情報はどこにも書かない");
+    return L.join("\n");
+  }
+  function update(){
+    const {list,bad}=parse(inp.value);
+    if(!list.length){out.value="";btn.disabled=true;sum.textContent=inp.value.trim()?"注文番号と伝票番号（12桁）が見つかりません":"";return;}
+    out.value=build(list,dt.value);btn.disabled=false;
+    const n=k=>list.filter(x=>x.store===k).length;
+    sum.innerHTML="計"+list.length+"件（Amazon "+n("AMAZON")+"／Yahoo! "+n("YAHOO")+"／BASE "+n("BASE")+"）"+
+      (bad.length?'　<span style="color:#a12">読めない行 '+bad.length+"：店か伝票番号が分からない行は入れていません</span>":"");
+  }
+  inp.addEventListener("input",update);dt.addEventListener("change",update);
+  $("ntClear").onclick=()=>{inp.value="";update();};
+  btn.onclick=()=>{
+    const v=out.value;if(!v)return;
+    const ta=document.createElement("textarea");ta.value=v;ta.style.cssText="position:fixed;left:-9999px;top:0";document.body.appendChild(ta);ta.select();
+    let ok=false;try{ok=document.execCommand("copy");}catch(e){}document.body.removeChild(ta);
+    (ok?Promise.resolve():navigator.clipboard.writeText(v)).then(()=>{btn.textContent="コピーしました → 拡張に貼り付け";setTimeout(()=>btn.textContent="指示文をコピー",3000);},
+      ()=>{out.closest("details").open=true;out.select();});
+  };
 })();
 </script>
 </body>
