@@ -1103,12 +1103,13 @@ $("copyNew").onclick=()=>{
     const a=by("AMAZON"),y=by("YAHOO"),b=by("BASE");
     const test=document.getElementById("ntTest").checked;
     if(a.length){L.push("","【Amazon】"+url("AMAZON"),
-      "未出荷の注文一覧で、下の"+a.length+"件をまとめて選び、「出荷通知を一括送信」で1つの画面にまとめて入力する（1件ずつ送信しない）。到着予定日も入れる");
-      a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk+"　"+arr(x,date)));}
+      "未出荷の注文一覧で、下の"+a.length+"件をまとめて選び、「出荷通知を一括送信」で1つの画面にまとめて入力する（1件ずつ送信しない）。",
+      "出荷日 "+d+"、発送元は「ZAZOU株式会社」");
+      a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
     if(y.length){L.push("","【Yahoo!ショッピング】"+url("YAHOO"),
-      "注文一覧で、下の"+y.length+"件をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。到着予定日も入れる。"+
+      "注文一覧で、下の"+y.length+"件をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。出荷日 "+d+"。到着予定日も入れる（時刻の欄はない）。"+
       (test?"出荷ステータスは「出荷処理中」まで進めてよい":"出荷ステータスは「出荷済み」"));
-      y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk+"　"+arr(x,date)));}
+      y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk+"　到着予定日 "+arrival(x,date)));}
     if(b.length){L.push("","【BASE】"+url("BASE"),
       "注文番号で開き、配送業者・追跡番号を入れて「発送済み」にする。",
       "購入者へのメッセージは、テンプレート「ZAZOOマウス」を選び、出荷日・着荷予定日・到着時刻（指定があるときだけ）を入れる");
