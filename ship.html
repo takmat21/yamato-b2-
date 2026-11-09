@@ -259,6 +259,13 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
     <details style="margin-top:8px"><summary class="note" style="cursor:pointer">作った指示文を見る</summary>
       <textarea id="ntOut" readonly style="width:100%;margin-top:8px;min-height:220px"></textarea>
     </details>
+    <details style="margin-top:8px"><summary class="note" style="cursor:pointer">出荷通知の画面のURLを変える（このブラウザに保存）</summary>
+      <div class="setgrid">
+        <label>Amazon（未出荷の注文一覧）<input type="text" class="ntUrl" data-site="AMAZON"></label>
+        <label>Yahoo!（一括出荷の画面）<input type="text" class="ntUrl" data-site="YAHOO"></label>
+        <label>BASE（注文管理）<input type="text" class="ntUrl" data-site="BASE"></label>
+      </div>
+    </details>
   </div>
   <div class="card">
     <div style="font-weight:600;font-size:14px">要望・フィードバック</div>
@@ -1065,16 +1072,28 @@ $("copyNew").onclick=()=>{
     });
     return {list,bad};
   }
+  const NT_KEY="zazou_ship_notify_urls";
+  const NT_DEF={AMAZON:"https://sellercentral.amazon.co.jp/orders-v3/mfn/unshipped",
+    YAHOO:"https://pro.store.yahoo.co.jp/",BASE:"https://admin.thebase.com/shop_admin/orders/"};
+  let ntUrls={};try{ntUrls=JSON.parse(localStorage.getItem(NT_KEY)||"{}")||{};}catch(e){}
+  const url=k=>ntUrls[k]||NT_DEF[k];
+  document.querySelectorAll(".ntUrl").forEach(i=>{const k=i.dataset.site;i.value=url(k);
+    i.oninput=()=>{ntUrls[k]=i.value.trim();try{localStorage.setItem(NT_KEY,JSON.stringify(ntUrls));}catch(e){}update();};});
   function build(list,date){
     const d=date.replace(/-/g,"/");
     const by=k=>list.filter(x=>x.store===k);
     const L=["今日（"+d+"）出荷した"+list.length+"件の出荷通知を入力してください。","配送会社はすべて「ヤマト運輸（宅急便）」、出荷日は"+d+"です。"];
     const a=by("AMAZON"),y=by("YAHOO"),b=by("BASE");
-    if(a.length){L.push("","【Amazon】セラーセントラル → 注文管理 → 注文を検索 →「出荷通知を送信」");a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
-    if(y.length){L.push("","【Yahoo!ショッピング】ストアクリエイターPro → 注文管理 → 注文番号で検索");y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk+"、配送会社 ヤマト運輸、出荷ステータス「出荷済み」"));}
-    if(b.length){L.push("","【BASE】注文管理 → 注文番号で検索");b.forEach(x=>L.push("・"+x.oid+"　配送業者 ヤマト運輸、追跡番号 "+x.trk+"、「発送済み」にする"));}
+    if(a.length){L.push("","【Amazon】"+url("AMAZON"),
+      "未出荷の注文一覧で、下の"+a.length+"件をまとめて選び、「出荷通知を一括送信」で1つの画面にまとめて入力する（1件ずつ送信しない）");
+      a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
+    if(y.length){L.push("","【Yahoo!ショッピング】"+url("YAHOO"),
+      "注文一覧で、下の"+y.length+"件をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。出荷ステータスは「出荷済み」");
+      y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk));}
+    if(b.length){L.push("","【BASE】"+url("BASE"),"注文番号で開き、配送業者・追跡番号を入れて「発送済み」にする");
+      b.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
     L.push("","決まり：",
-      "・1件ずつ、確定・送信ボタンの手前まで入力して止まり、入力内容を報告する（押すのは私）",
+      "・店ごとに全件を入力し終えたら、最後の送信ボタンの手前で止まって入力内容を報告する（押すのは私）",
       "・注文番号と追跡番号の組み合わせを、画面で必ず照らし合わせる",
       "・見つからない注文や、すでに通知済みの注文があれば、何もせず報告する",
       "・ここに書いていない注文には触らない",
