@@ -1069,7 +1069,15 @@ $("copyNew").onclick=()=>{
       if(!oid&&!trk)return; // 見出し行などは黙って飛ばす
       if(!oid||!trk){bad.push(line.trim().slice(0,40));return;}
       const key=oid+"|"+trk;if(seen.has(key))return;seen.add(key);
-      list.push({store:storeOf(oid),oid,trk});
+      let deliv="",slotv="",pref="";
+      const ti=cells.findIndex(c=>c.replace(/-/g,"")===trk);
+      if(ti>=0&&cells.length>ti+3){ // 行まるごと：D=伝票番号, E=出荷予定日, F=お届け予定日, G=配達時間帯
+        const f=cells[ti+2]||"",g=cells[ti+3]||"";
+        const m=f.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);if(m)deliv=m[1]+"-"+pad(m[2])+"-"+pad(m[3]);
+        if(SLOT[g])slotv=g;
+      }
+      for(const c of cells){const m=c.match(/^(北海道|東京都|京都府|大阪府|.{2,3}県)/);if(m){pref=m[1];break;}}
+      list.push({store:storeOf(oid),oid,trk,deliv,slot:slotv,pref});
     });
     return {list,bad};
   }
@@ -1080,19 +1088,32 @@ $("copyNew").onclick=()=>{
   const url=k=>ntUrls[k]||NT_DEF[k];
   document.querySelectorAll(".ntUrl").forEach(i=>{const k=i.dataset.site;i.value=url(k);
     i.oninput=()=>{ntUrls[k]=i.value.trim();try{localStorage.setItem(NT_KEY,JSON.stringify(ntUrls));}catch(e){}update();};});
+  const SLOT={"0812":"午前中（8〜12時）","1416":"14〜16時","1618":"16〜18時","1820":"18〜20時","1921":"19〜21時"};
+  const FAR=/^(北海道|沖縄県|青森県|秋田県|岩手県)/; // 滋賀から2日（目安）
+  function arrival(x,date){ // 到着予定日：指定日があればそれ、なければ出荷日＋配達日数（目安）
+    if(x.deliv)return x.deliv.replace(/-/g,"/");
+    const d=new Date(date+"T00:00:00");d.setDate(d.getDate()+(FAR.test(x.pref||"")?2:1));
+    return d.getFullYear()+"/"+pad(d.getMonth()+1)+"/"+pad(d.getDate());
+  }
+  const arr=(x,date)=>"到着予定日 "+arrival(x,date)+(x.slot?"（"+SLOT[x.slot]+"）":"");
   function build(list,date){
     const d=date.replace(/-/g,"/");
     const by=k=>list.filter(x=>x.store===k);
     const L=["今日（"+d+"）出荷した"+list.length+"件の出荷通知を入力してください。","配送会社はすべて「ヤマト運輸（宅急便）」、出荷日は"+d+"です。"];
     const a=by("AMAZON"),y=by("YAHOO"),b=by("BASE");
+    const test=document.getElementById("ntTest").checked;
     if(a.length){L.push("","【Amazon】"+url("AMAZON"),
-      "未出荷の注文一覧で、下の"+a.length+"件をまとめて選び、「出荷通知を一括送信」で1つの画面にまとめて入力する（1件ずつ送信しない）");
-      a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
+      "未出荷の注文一覧で、下の"+a.length+"件をまとめて選び、「出荷通知を一括送信」で1つの画面にまとめて入力する（1件ずつ送信しない）。到着予定日も入れる");
+      a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk+"　"+arr(x,date)));}
     if(y.length){L.push("","【Yahoo!ショッピング】"+url("YAHOO"),
-      "注文一覧で、下の"+y.length+"件をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。出荷ステータスは「出荷済み」");
-      y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk));}
-    if(b.length){L.push("","【BASE】"+url("BASE"),"注文番号で開き、配送業者・追跡番号を入れて「発送済み」にする");
-      b.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
+      "注文一覧で、下の"+y.length+"件をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。到着予定日も入れる。"+
+      (test?"出荷ステータスは「出荷処理中」まで進めてよい":"出荷ステータスは「出荷済み」"));
+      y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk+"　"+arr(x,date)));}
+    if(b.length){L.push("","【BASE】"+url("BASE"),
+      "注文番号で開き、配送業者・追跡番号を入れて「発送済み」にする。",
+      "購入者へのメッセージは、テンプレート「ZAZOOマウス」を選び、出荷日・着荷予定日・到着時刻（指定があるときだけ）を入れる");
+      b.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk+"　出荷日 "+d+"　着荷予定日 "+arrival(x,date)+(x.slot?"　到着時刻 "+SLOT[x.slot]:"")));}
+    if(list.some(x=>!x.deliv&&!x.pref))L.push("","（到着予定日は、出荷日の翌日を目安にしています）");
     L.push("","決まり：",
       ...(document.getElementById("ntTest").checked
         ?["・テストです。店ごとに全件を入力し終えたら、出荷通知の送信ボタンの手前で止める（送信は押さない）",
