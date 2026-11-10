@@ -245,6 +245,16 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
     </div>
   </div>
 
+  <div class="card" id="b2Card">
+    <h2 style="font-size:16px;margin:0">④ B2で送り状をつくる（拡張にお願いする）</h2>
+    <div class="note" style="margin-top:6px">上で作ったCSVを、B2クラウドに取り込みます。ボタンを押すとB2が新しいタブで開き、拡張用の手順がコピーされます。<b>拡張を開いて貼り付け</b>てください。ファイルを選ぶ操作と、「発行」「印刷」は人が行います。</div>
+    <div class="btnrow" style="margin-top:10px"><button class="primary" id="b2Go" type="button">B2を開いて、手順をコピー</button><span class="note" id="b2Msg" style="margin:0"></span></div>
+    <details style="margin-top:10px"><summary class="note" style="cursor:pointer">コピーした手順を見る／開く画面のURLを変える</summary>
+      <textarea id="b2Out" readonly style="width:100%;margin-top:8px;min-height:200px"></textarea>
+      <div class="setgrid"><label>B2クラウドを開くURL<input type="text" id="b2Url"></label></div>
+    </details>
+  </div>
+
   <div class="card" id="notifyCard">
     <h2 style="font-size:16px;margin:0">⑤ 出荷通知（拡張にお願いする）</h2>
     <p class="note">伝票を発行したら、B2用Excelの今日出荷した行をコピーして貼り付け（行まるごとでも、A列〈お客様管理番号〉とD列〈伝票番号〉だけでもOK）。注文番号の形で店を見分けて、拡張に貼る出荷通知の指示文を作ります。</p>
@@ -1154,6 +1164,46 @@ $("copyNew").onclick=()=>{
     (ok?Promise.resolve():navigator.clipboard.writeText(v)).then(()=>{btn.textContent="コピーしました → 拡張に貼り付け";setTimeout(()=>btn.textContent="指示文をコピー",3000);},
       ()=>{out.closest("details").open=true;out.select();});
   };
+})();
+</script>
+<script>
+(function(){
+  var K="zazou_ship_b2_url",DEF="https://bmypage.kuronekoyamato.co.jp/";
+  var u=document.getElementById("b2Url"),o=document.getElementById("b2Out"),g=document.getElementById("b2Go"),m=document.getElementById("b2Msg");
+  if(!u||!o||!g)return;
+  var sv="";try{sv=localStorage.getItem(K)||"";}catch(e){}
+  u.value=sv||DEF;
+  u.addEventListener("change",function(){try{localStorage.setItem(K,u.value.trim());}catch(e){}});
+  function count(){var t=document.getElementById("tbl");if(!t)return 0;var n=t.querySelectorAll("tbody tr").length;if(!n){n=t.querySelectorAll("tr").length-1;}return n>0?n:0;}
+  function text(){var n=count();return [
+"ヤマトB2クラウドで、送り状データの取り込みを手伝ってください。",
+"",
+"【すること】",
+"1. このタブで、B2クラウド（送り状発行システム）を開く。ログイン画面が出たら、そこで止まって知らせる（IDとパスワードは私が入れます）。",
+"2. 「送り状発行」→「外部データから発行」を開く。",
+"3. 取込みパターンは、すでに選ばれているもの（前回と同じもの）を使う。変えない。",
+"4. ファイルを選ぶところまで来たら、「ファイルを選んでください」と言って待つ（ファイルは私が選びます）。",
+"5. 私が「選んだ」と言ったら、取り込みを始める。",
+"6. 取り込みの結果を確かめて、次を報告する。",
+"   ・取り込めた件数"+(n?"（今回は "+n+" 件のはずです。合わなければ知らせる）":""),
+"   ・エラーや注意が出た行（お届け先の名前や住所は書かず、「お客様管理番号」と理由だけ）",
+"   ・お届け日・時間帯・クール区分・品名のどれかが空の行",
+"7. エラーがあれば、直し方の案を出す。画面で直してよいのは、電話番号のハイフンのような形式の誤りだけ。住所・名前・品名の中身は変えない。直したら、どこをどう直したか知らせる。",
+"8. 「発行開始」「印刷」のボタンは押さない。その手前で止まって、件数を知らせる。",
+"",
+"【しないこと】",
+"・発行、印刷、削除",
+"・取込みパターンや設定の変更",
+"・今回取り込んだ分以外の送り状にさわること",
+"・画面にない操作を推測で進めること（迷ったら止まって聞く）"].join("\n");}
+  function refresh(){o.value=text();}
+  refresh();
+  g.addEventListener("click",function(){refresh();var t=o.value;
+    var done=function(ok){m.textContent=ok?"コピーしました。拡張に貼り付けてください。":"コピーできませんでした。下の「手順を見る」から手でコピーしてください。";};
+    try{window.open(u.value.trim()||DEF,"_blank","noopener");}catch(e){}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){done(true);},function(){done(false);});}
+    else{try{o.select();done(document.execCommand("copy"));}catch(e){done(false);}}
+  });
 })();
 </script>
 </body>
