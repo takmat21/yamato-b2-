@@ -220,6 +220,7 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
       <button class="primary" id="run" disabled>変換する</button>
       <button class="ghost" id="reload" type="button" title="前回分をクリアして最初からやり直す（新しい注文を処理する前に押してください）">🔄 リフレッシュ</button>
     </div>
+    <div id="runMsg" class="hide" role="alert" style="background:#fdecec;border:1px solid #e0b4b4;color:#a12;padding:10px 12px;border-radius:8px;font-size:14px;margin:10px 0 0"></div>
     <div class="btnrow outrow hide" id="outRow">
       <button class="ghost" id="dl">CSVをダウンロード（B2取り込み用）</button>
       <button class="ghost" id="copy">クリップボードにコピー（テンプレに貼付）</button>
@@ -810,7 +811,15 @@ function doConvert(){
   const need={name:"ご依頼主名",tel:"ご依頼主電話番号",zip:"ご依頼主郵便番号",addr:"ご依頼主住所"};
   if(!BLANK_BILL)need.bill="請求先顧客コード";
   const miss=Object.keys(need).filter(k=>!SENDER[k]).map(k=>need[k]);
-  if(miss.length){alert("「① ご依頼主（出荷元）情報の設定」が未入力です：\n・"+miss.join("\n・")+"\n\n入力してから変換してください。");$("settingsCard").open=true;return;}
+  const rm=$("runMsg");
+  if(miss.length){ // alertはブラウザや拡張に止められて「反応なし」に見えることがあるので、画面に出す
+    rm.innerHTML="変換できません：「ご依頼主（出荷元）情報」が未入力です → <b>"+miss.join("・")+"</b>。上の欄に入力してから、もう一度「変換する」を押してください。";rm.classList.remove("hide");
+    $("settingsCard").open=true;
+    const ids={name:"setName",tel:"setTel",zip:"setZip",addr:"setAddr",bill:"setBill"};let first=null;
+    Object.keys(ids).forEach(k=>{const el=$(ids[k]);const bad=!!need[k]&&!SENDER[k];el.style.outline=bad?"2px solid #c0392b":"";if(bad&&!first)first=el;});
+    if(first){first.scrollIntoView({block:"center",behavior:"smooth"});first.focus({preventScroll:true});}
+    return;}
+  rm.classList.add("hide");["setName","setTel","setZip","setAddr","setBill"].forEach(i=>{$(i).style.outline="";});
   let all=[];loaded.forEach(f=>{if(f.channel!=="UNKNOWN")all=all.concat(f.orders.map(o=>({...o})));});
   let merged=$("optMerge").checked?mergeOrders(all):all;
   let excluded=0;
