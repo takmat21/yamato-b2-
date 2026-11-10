@@ -1123,7 +1123,7 @@ $("copyNew").onclick=()=>{
     const test=document.getElementById("ntTest").checked;
     if(a.length){L.push("","【Amazon】"+url("AMAZON"),
       "未出荷の注文一覧で、下の"+a.length+"件をまとめて選び、「出荷通知を一括送信」で1つの画面にまとめて入力する（1件ずつ送信しない）。",
-      "出荷日 "+d+"、発送元は「ZAZOU株式会社」");
+      "出荷日 "+d+"、発送元は「ZAZOU株式会社」（候補に「ZAZOU株式会社」が2つ以上あるときは、リストの1つ目＝いちばん上を選ぶ。質問せずに進める）");
       a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
     if(y.length){L.push("","【Yahoo!ショッピング】"+url("YAHOO"),
       "注文一覧で、下の"+y.length+"件をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。出荷日 "+d+"。到着予定日も入れる（時刻の欄はない）。"+
