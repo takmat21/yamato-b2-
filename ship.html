@@ -156,7 +156,7 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
       <input type="text" id="folderUrl" placeholder="https://drive.google.com/drive/folders/…">
     </label>
     <div class="openbtns" id="openBtns"></div>
-    <div class="note">押すと、そのサイトの注文画面が新しいタブで開き、拡張用の手順がコピーされます。<b>拡張を開いて貼り付け（Mac <span class="kbd">⌘V</span>／Windows <span class="kbd">Ctrl+V</span>）</b>。ファイルは、いつものダウンロードフォルダに入ります。チェックはこのブラウザに保存されます。</div>
+    <div class="note">押すと、選んだ店の手順がまとめてコピーされ、1つ目の店の注文画面が新しいタブで開きます。<b>拡張を開いて貼り付け（Mac <span class="kbd">⌘V</span>／Windows <span class="kbd">Ctrl+V</span>）</b>。ファイルは、いつものダウンロードフォルダに入ります。チェックはこのブラウザに保存されます。</div>
     <details style="margin-top:10px"><summary class="note" style="cursor:pointer">コピーした手順を見る／開く画面のURLを変える</summary>
       <textarea id="lastPrompt" readonly style="width:100%;margin-top:8px"></textarea>
       <div class="setgrid">
@@ -1049,11 +1049,20 @@ $("copyNew").onclick=()=>{
       "2.「注文データをダウンロード」ボタンを押す。",
       "押してよいのは、この2つだけ。出荷通知・発送済みにする・キャンセル・お客様へのメール送信はしないでください。"]
   };
-  function prompt(k){
-    return [NAME[k]+"で、"+WHAT[k]+"をダウンロードしてください。保存先は、いつものダウンロードフォルダです。"]
-      .concat(STEPS[k],
-      ["購入者の情報はどこにも書かないでください。",
-      "終わったら matsumura.takashi@zazoucorp.com に、ファイル名と『もっと簡単にできる方法』があればそれだけをメールしてください。"]).join("\n");
+  // 選んだ店の分を、1つの指示文にまとめる（11/12 松村さん「ボタンを一つにまとめて」）
+  function promptAll(sel){
+    const out=["次の順番で、"+sel.map(k=>NAME[k]).join("・")+"の注文ファイルをダウンロードしてください。保存先は、いつものダウンロードフォルダです。",""];
+    sel.forEach((k,i)=>{
+      out.push("【"+(i+1)+"】"+NAME[k]+"："+WHAT[k]);
+      if(k==="YAHOO"){ out.push.apply(out,STEPS.YAHOO.slice(1).map(x=>x.replace("https://pro.store.yahoo.co.jp/pro.zazous/order/manage/new_order",openUrl("YAHOO")))); }
+      else{ out.push("1. 次の画面を開く。",openUrl(k));
+        if(k==="BASE") out.push("2. 未対応の注文にチェックを入れる。","3.「注文データをダウンロード」ボタンを押す。","押してよいのは、この2つだけ。出荷通知・発送済みにする・キャンセル・お客様へのメール送信はしないでください。");
+        else out.push("2. "+WHAT[k]+"をダウンロードする。","押してよいのは"+PUSH[k]+"だけ。出荷通知・発送済みにする・キャンセル・お客様へのメール送信はしないでください。"); }
+      out.push("");
+    });
+    out.push("購入者の情報はどこにも書かないでください。",
+      "終わったら matsumura.takashi@zazoucorp.com に、ファイル名と『もっと簡単にできる方法』があればそれだけをメールしてください。");
+    return out.join("\n");
   }
   function copyPlain(t){
     const ta=document.createElement("textarea");ta.value=t;ta.setAttribute("readonly","");ta.style.cssText="position:fixed;left:-9999px;top:0";
@@ -1061,19 +1070,21 @@ $("copyNew").onclick=()=>{
     document.body.removeChild(ta);
     return ok?Promise.resolve():(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject());
   }
-  // ①手順をコピー ②注文画面を新しいタブで開く。どちらもクリックの中ですぐ行う（Mac/WindowsのChromeで同じ動き）
-  function openAndCopy(k,btn){
-    const t=prompt(k);$("lastPrompt").value=t;const label=btn.textContent;
+  // ボタンは1つ。押すと、選んだ店の手順をまとめてコピーし、1つ目の店の注文画面を新しいタブで開く
+  function openAndCopy(sel,btn){
+    const t=promptAll(sel);$("lastPrompt").value=t;const label=btn.textContent;
     copyPlain(t).then(()=>{btn.textContent="コピーしました → 拡張に貼り付け";btn.classList.add("done");},
       ()=>{btn.textContent="コピーできませんでした。下の手順をコピーしてください";$("lastPrompt").closest("details").open=true;$("lastPrompt").select();});
     setTimeout(()=>{btn.textContent=label;btn.classList.remove("done");},4000);
-    window.open(openUrl(k),"_blank","noopener");
+    window.open(openUrl(sel[0]),"_blank","noopener");
   }
   function draw(){
     const w=$("openBtns");w.innerHTML="";
     const sel=boxes.filter(x=>x.checked).map(x=>x.value);
     if(!sel.length){w.innerHTML='<div class="note">サイトを選ぶとボタンが出ます</div>';return;}
-    sel.forEach(k=>{const b=document.createElement("button");b.type="button";b.className="primary";b.textContent=SHORT[k]+"を開いてコピー";b.onclick=()=>openAndCopy(k,b);w.appendChild(b);});
+    const b=document.createElement("button");b.type="button";b.className="primary";
+    b.textContent="注文をまとめてダウンロード（"+sel.map(k=>SHORT[k]).join("・")+"）";
+    b.onclick=()=>openAndCopy(sel,b);w.appendChild(b);
   }
   draw();
 })();
