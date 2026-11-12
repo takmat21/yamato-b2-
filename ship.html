@@ -398,6 +398,7 @@ function fmt(d){return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate();}
 // ===== 2重処理（同じ注文を再変換）検知用の処理済み履歴（localStorage）=====
 const HIST_KEY="yamatoB2_history_v1";
 function isoJST(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+let histBase=null; // 変換した時点の処理済みの控え（11/12：自動ダウンロードで未処理が0件になる不具合の直し）
 function loadHistory(){try{return JSON.parse(localStorage.getItem(HIST_KEY)||"{}")||{};}catch(e){return {};}}
 function saveHistory(h){try{localStorage.setItem(HIST_KEY,JSON.stringify(h));}catch(e){}}
 function pruneHistory(h){const cut=todayJST();cut.setDate(cut.getDate()-120);const cs=isoJST(cut);for(const k in h){if(h[k]<cs)delete h[k];}return h;} // 120日より古い履歴は自動削除
@@ -840,6 +841,7 @@ function doConvert(){
   }
   rows=merged.map(buildRow);metaChan=merged.map(o=>o.ch);
   metaOids=merged.map(o=>(o._orders&&o._orders.length?o._orders.slice():[o.oid]));
+  histBase=loadHistory();
   renderTable(merged.length,all.length,excluded);
   $("result").classList.remove("hide");$("outRow").classList.remove("hide");
   // 出荷アプリ：出来たらすぐCSVをダウンロードし、確認用の一覧を見せる
@@ -857,7 +859,7 @@ function renderTable(nShip,nLine,excluded){
   $("sum").innerHTML=`取り込み件数：<b>${nLine}</b> 明細 → <b>${nShip}</b> 伝票`
     +(excluded>0?` <span style="color:var(--sub)">（出荷予定日が先の <b style="color:var(--warn)">${excluded}</b> 伝票を除外）</span>`:"");
   // 2重処理検知：現バッチ内で同じ注文番号が複数／過去に処理済み
-  const hist=loadHistory();const cnt={};metaOids.forEach(l=>l.forEach(o=>{if(o)cnt[o]=(cnt[o]||0)+1;}));
+  const hist=histBase||loadHistory();const cnt={};metaOids.forEach(l=>l.forEach(o=>{if(o)cnt[o]=(cnt[o]||0)+1;}));
   const dupInfo=metaOids.map(ids=>{const past=ids.filter(o=>hist[o]);const inBatch=ids.some(o=>cnt[o]>1);
     return {past,inBatch,ids};});
   const nBatch=dupInfo.filter(d=>d.inBatch).length;    // 今回の中で重複している伝票数
@@ -938,7 +940,7 @@ $("histRegister").onclick=()=>{addToHistory(curOids());refreshCopyNewLabel();toa
 $("histClear").onclick=clearHistory;
 const COPY_LABEL="クリップボードにコピー（テンプレに貼付）";
 // 未処理（過去に変換済みでない）伝票の件数を数えてボタン名に反映
-function nUnprocessed(){const hist=loadHistory();let n=0;metaOids.forEach(ids=>{if(!(ids||[]).some(o=>hist[o]))n++;});return n;}
+function nUnprocessed(){const hist=histBase||loadHistory();let n=0;metaOids.forEach(ids=>{if(!(ids||[]).some(o=>hist[o]))n++;});return n;}
 function copyNewLabelText(){return `過去分を除いてコピー（未処理 ${nUnprocessed()} 件）`;}
 function refreshCopyNewLabel(){const b=$("copyNew");if(b)b.textContent=copyNewLabelText();}
 function flashCopy(btn,label){btn.textContent="コピーしました ✓";setTimeout(()=>btn.textContent=label,2000);}
@@ -1002,12 +1004,12 @@ async function copyToClipboard(srcRows,oidsForHist,done){
 $("copy").onclick=()=>copyToClipboard(rows,curOids(),()=>{flashCopy($("copy"),COPY_LABEL);addToHistory(curOids());refreshCopyNewLabel();markExported();});
 // 過去に変換済みを除いてコピー：履歴にある注文番号を含む伝票を除外
 $("copyNew").onclick=()=>{
-  const hist=loadHistory();
+  const hist=histBase||loadHistory();
   const keep=rows.map((r,ri)=>ri).filter(ri=>!(metaOids[ri]||[]).some(o=>hist[o]));
   const skipped=rows.length-keep.length;
   if(!keep.length){toast("コピーできる注文がありません（"+rows.length+"件すべて過去に変換済み）");return;}
   const srcRows=keep.map(ri=>rows[ri]);const oids=[];keep.forEach(ri=>(metaOids[ri]||[]).forEach(o=>{if(o)oids.push(o);}));
-  copyToClipboard(srcRows,oids,()=>{addToHistory(oids);flashCopy($("copyNew"),copyNewLabelText());markExported();
+  copyToClipboard(srcRows,oids,()=>{addToHistory(oids);if(histBase)oids.forEach(o=>{histBase[o]=histBase[o]||"今回";});flashCopy($("copyNew"),copyNewLabelText());markExported();
     if(skipped>0)toast("過去に変換済みの "+skipped+" 件を除いて "+keep.length+" 件をコピーしました");});
 };
 
