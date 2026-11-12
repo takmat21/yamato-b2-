@@ -247,7 +247,8 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
 
   <div class="card" id="b2Card">
     <h2 style="font-size:16px;margin:0">④ B2で送り状をつくる（拡張にお願いする）</h2>
-    <div class="note" style="margin-top:6px">上で作ったCSVを、B2クラウドに取り込みます。ボタンを押すとB2が新しいタブで開き、拡張用の手順がコピーされます。<b>拡張を開いて貼り付け</b>てください。ファイルを選ぶ操作と、「発行」「印刷」は人が行います。</div>
+    <div class="note" style="margin-top:6px">上で作ったCSVを、B2クラウドに取り込みます。ボタンを押すとB2が新しいタブで開き、拡張用の手順がコピーされます。<b>拡張を開いて貼り付け</b>てください。「発行」「印刷」は人が行います。</div>
+    <div class="setgrid"><label>取り込むファイルの名前<input type="text" id="b2File"></label><label>開始行<input type="text" id="b2Row" inputmode="numeric"></label></div>
     <div class="btnrow" style="margin-top:10px"><button class="primary" id="b2Go" type="button">B2を開いて、手順をコピー</button><span class="note" id="b2Msg" style="margin:0"></span></div>
     <details style="margin-top:10px"><summary class="note" style="cursor:pointer">コピーした手順を見る／開く画面のURLを変える</summary>
       <textarea id="b2Out" readonly style="width:100%;margin-top:8px;min-height:200px"></textarea>
@@ -1203,21 +1204,27 @@ $("copyNew").onclick=()=>{
   u.value=sv||DEF;
   u.addEventListener("change",function(){try{localStorage.setItem(K,u.value.trim());}catch(e){}});
   function count(){var t=document.getElementById("tbl");if(!t)return 0;var n=t.querySelectorAll("tbody tr").length;if(!n){n=t.querySelectorAll("tr").length-1;}return n>0?n:0;}
+  var KF="zazou_ship_b2_file",KR="zazou_ship_b2_row",f=document.getElementById("b2File"),r=document.getElementById("b2Row");
+  function ld(k,d){try{return localStorage.getItem(k)||d;}catch(e){return d;}}
+  f.value=ld(KF,"newb2web_template1_1107");r.value=ld(KR,"41");
+  function fv(){return f.value.trim();}function rv(){return r.value.trim();}
+  [[f,KF],[r,KR]].forEach(function(x){x[0].addEventListener("input",function(){try{localStorage.setItem(x[1],x[0].value.trim());}catch(e){}refresh();});});
   function text(){var n=count();return [
 "ヤマトB2クラウドで、送り状データの取り込みを手伝ってください。",
 "",
 "【すること】",
 "1. このタブで、B2クラウド（送り状発行システム）を開く。ログイン画面が出たら、そこで止まって知らせる（IDとパスワードは私が入れます）。",
 "2. 「送り状発行」→「外部データから発行」を開く。",
-"3. 取込みパターンは、すでに選ばれているもの（前回と同じもの）を使う。変えない。",
-"4. 「ファイル選択」のボタンは押さず、「ファイルを選んでください。開始行も教えてください」と言って待つ。ファイルを探さない（パソコンのファイルを選ぶ窓は、あなたからは見えません。ファイルは私が選びます）。",
-"5. 私が「選んだ 41」のように、開始行の数字を付けて言ったら、ファイル名が画面に入ったことを確かめ、開始行をその数字にして、「取り込み開始」ボタンを押す。数字が無ければ、開始行を聞く。",
-"6. 取り込みの結果を確かめて、次を報告する。",
+"3. ファイルを選ぶ",
+"   "+fv(),
+"   開始行【"+rv()+"】",
+"4. 取り込み開始ボタンを押す",
+"5. 取り込みの結果を確かめて、次を報告する。",
 "   ・取り込めた件数"+(n?"（今回は "+n+" 件のはずです。合わなければ知らせる）":""),
-"   ・エラーや注意が出た行（お届け先の名前や住所は書かず、「お客様管理番号」と理由だけ）",
+"   ・エラーや注意が出た行（「お客様管理番号」と理由）",
 "   ・お届け日・時間帯・クール区分・品名のどれかが空の行",
-"7. エラーがあれば、直し方の案を出す。画面で直してよいのは、電話番号のハイフンのような形式の誤りだけ。住所・名前・品名の中身は変えない。直したら、どこをどう直したか知らせる。",
-"8. 「発行開始」「印刷」のボタンは押さない。その手前で止まって、件数を知らせる。",
+"6. エラーがあれば、直し方の案を出す。画面で直してよいのは、電話番号のハイフンのような形式の誤りだけ。住所・名前・品名の中身は変えない。直したら、どこをどう直したか知らせる。",
+"7. 「発行開始」「印刷」のボタンは押さない。その手前で止まって、件数を知らせる。",
 "",
 "【しないこと】",
 "・発行、印刷、削除",
