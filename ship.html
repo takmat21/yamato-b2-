@@ -152,11 +152,11 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
       <label><input type="checkbox" class="site" value="YAHOO"> Yahoo!ショッピング</label>
       <label><input type="checkbox" class="site" value="BASE"> BASE</label>
     </div>
-    <label class="fld">保存先（GoogleドライブのフォルダURL）
+    <label class="fld" style="display:none">保存先（GoogleドライブのフォルダURL）
       <input type="text" id="folderUrl" placeholder="https://drive.google.com/drive/folders/…">
     </label>
     <div class="openbtns" id="openBtns"></div>
-    <div class="note">押すと、そのサイトの注文画面が新しいタブで開き、拡張用の手順がコピーされます。<b>拡張を開いて貼り付け（Mac <span class="kbd">⌘V</span>／Windows <span class="kbd">Ctrl+V</span>）</b>。チェックと保存先はこのブラウザに保存されます。</div>
+    <div class="note">押すと、そのサイトの注文画面が新しいタブで開き、拡張用の手順がコピーされます。<b>拡張を開いて貼り付け（Mac <span class="kbd">⌘V</span>／Windows <span class="kbd">Ctrl+V</span>）</b>。ファイルは、いつものダウンロードフォルダに入ります。チェックはこのブラウザに保存されます。</div>
     <details style="margin-top:10px"><summary class="note" style="cursor:pointer">コピーした手順を見る／開く画面のURLを変える</summary>
       <textarea id="lastPrompt" readonly style="width:100%;margin-top:8px"></textarea>
       <div class="setgrid">
@@ -1019,7 +1019,7 @@ $("copyNew").onclick=()=>{
   const WHAT={AMAZON:"未出荷の注文レポート",YAHOO:"注文データCSV",BASE:"注文データCSV"};
   const PUSH={AMAZON:"ダウンロード（レポートのリクエスト・更新も）",YAHOO:"ダウンロード",BASE:"ダウンロード"};
   const DEF_URL={AMAZON:"https://sellercentral.amazon.co.jp/order-reports-and-feeds/reports/unshippedOrders",
-    YAHOO:"https://pro.store.yahoo.co.jp/",BASE:"https://admin.thebase.com/shop_admin/orders/"};
+    YAHOO:"https://pro.store.yahoo.co.jp/pro.zazous/order/manage/new_order",BASE:"https://admin.thebase.com/shop_admin/orders/"};
   const DEF={sites:["AMAZON","YAHOO","BASE"],folder:"https://drive.google.com/drive/folders/1e2kBFVyQewHZ_N-9JvePTVl38fkbAGH1",urls:{},autoDl:true};
   function load(){try{return Object.assign({},DEF,JSON.parse(localStorage.getItem(KEY)||"{}"));}catch(e){return Object.assign({},DEF);}}
   function save(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
@@ -1029,17 +1029,31 @@ $("copyNew").onclick=()=>{
   boxes.forEach(b=>{b.checked=st.sites.includes(b.value);b.onchange=()=>{st.sites=boxes.filter(x=>x.checked).map(x=>x.value);save();draw();};});
   $("folderUrl").value=st.folder||"";
   $("folderUrl").oninput=()=>{st.folder=$("folderUrl").value.trim();save();};
+  if(st.urls.YAHOO==="https://pro.store.yahoo.co.jp/"){delete st.urls.YAHOO;save();} // 古い既定のURLが残っていたら新しい既定に戻す
   urlInputs.forEach(i=>{const k=i.dataset.site;i.value=st.urls[k]||DEF_URL[k];i.oninput=()=>{st.urls[k]=i.value.trim();save();};});
   $("optAutoDl").checked=st.autoDl!==false;
   $("optAutoDl").onchange=()=>{st.autoDl=$("optAutoDl").checked;save();};
   const openUrl=k=>st.urls[k]||DEF_URL[k];
-  // 松村さん指定の短い形（11/7）。保存先は画面のURL欄の値
+  // 拡張への指示文（11/12 松村さん）：保存はふつうのローカルダウンロード。Yahoo!とBASEは押す順番を書く
+  const STEPS={
+    AMAZON:["押してよいのは"+PUSH.AMAZON+"だけ。出荷通知・発送済みにする・キャンセル・お客様へのメール送信はしないでください。"],
+    YAHOO:["手順：",
+      "1. 新規注文の画面を開く。",
+      "https://pro.store.yahoo.co.jp/pro.zazous/order/manage/new_order",
+      "2.「ページ内すべて選択」を押す。",
+      "3.「同時に注文承諾メールを送信」にチェックを入れる。",
+      "4.「注文データダウンロード」を押す。",
+      "押してよいのは、この3つだけ。出荷通知・発送済みにする・キャンセルはしないでください。"],
+    BASE:["手順：",
+      "1. 未対応の注文にチェックを入れる。",
+      "2.「注文データをダウンロード」ボタンを押す。",
+      "押してよいのは、この2つだけ。出荷通知・発送済みにする・キャンセル・お客様へのメール送信はしないでください。"]
+  };
   function prompt(k){
-    return [NAME[k]+"で、"+WHAT[k]+"をダウンロードして、Googleドライブの次のフォルダに入れてください。",
-      st.folder,
-      "押してよいのは"+PUSH[k]+"だけ。出荷通知・発送済みにする・キャンセル・お客様へのメール送信はしないでください。",
-      "購入者の情報はどこにも書かないでください。",
-      "終わったら matsumura.takashi@zazoucorp.com に、ファイル名と『もっと簡単にできる方法』があればそれだけをメールしてください。"].join("\n");
+    return [NAME[k]+"で、"+WHAT[k]+"をダウンロードしてください。保存先は、いつものダウンロードフォルダです。"]
+      .concat(STEPS[k],
+      ["購入者の情報はどこにも書かないでください。",
+      "終わったら matsumura.takashi@zazoucorp.com に、ファイル名と『もっと簡単にできる方法』があればそれだけをメールしてください。"]).join("\n");
   }
   function copyPlain(t){
     const ta=document.createElement("textarea");ta.value=t;ta.setAttribute("readonly","");ta.style.cssText="position:fixed;left:-9999px;top:0";
@@ -1049,7 +1063,6 @@ $("copyNew").onclick=()=>{
   }
   // ①手順をコピー ②注文画面を新しいタブで開く。どちらもクリックの中ですぐ行う（Mac/WindowsのChromeで同じ動き）
   function openAndCopy(k,btn){
-    if(!st.folder){toast("保存先のURLを入れてください");$("folderUrl").focus();return;}
     const t=prompt(k);$("lastPrompt").value=t;const label=btn.textContent;
     copyPlain(t).then(()=>{btn.textContent="コピーしました → 拡張に貼り付け";btn.classList.add("done");},
       ()=>{btn.textContent="コピーできませんでした。下の手順をコピーしてください";$("lastPrompt").closest("details").open=true;$("lastPrompt").select();});
