@@ -1131,7 +1131,7 @@ $("copyNew").onclick=()=>{
   }
   const NT_KEY="zazou_ship_notify_urls";
   const NT_DEF={AMAZON:"https://sellercentral.amazon.co.jp/orders-v3/mfn/unshipped",
-    YAHOO:"https://pro.store.yahoo.co.jp/",BASE:"https://admin.thebase.com/shop_admin/orders/"};
+    YAHOO:"https://pro.store.yahoo.co.jp/pro.zazous",BASE:"https://admin.thebase.com/shop_admin/orders/"};
   let ntUrls={};try{ntUrls=JSON.parse(localStorage.getItem(NT_KEY)||"{}")||{};}catch(e){}
   const url=k=>ntUrls[k]||NT_DEF[k];
   document.querySelectorAll(".ntUrl").forEach(i=>{const k=i.dataset.site;i.value=url(k);
@@ -1155,9 +1155,20 @@ $("copyNew").onclick=()=>{
       "出荷日 "+d+"、発送元は「ZAZOU株式会社」（候補に「ZAZOU株式会社」が2つ以上あるときは、リストの1つ目＝いちばん上を選ぶ。質問せずに進める）");
       a.forEach(x=>L.push("・"+x.oid+"　追跡番号 "+x.trk));}
     if(y.length){L.push("","【Yahoo!ショッピング】"+url("YAHOO"),
-      "注文一覧で、下の"+y.length+"件をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。出荷日 "+d+"。到着予定日も入れる（時刻の欄はない）。"+
+      "注文管理で、下の注文をまとめて選び、一括の出荷処理で入力する（1件ずつ送信しない）。",
+      "出荷日 "+d+"、配送会社「ヤマト運輸」。到着予定日（着荷日）も入れる（時刻の欄はない）。"+
       (test?"出荷ステータスは「出荷処理中」まで進めてよい":"出荷ステータスは「出荷済み」"));
-      y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk+"　到着予定日 "+arrival(x,date)));}
+      y.forEach(x=>L.push("・"+x.oid+"　伝票番号 "+x.trk+"　到着予定日 "+arrival(x,date)));
+      L.push("","手順：",
+        "1. 「出荷待ち」一覧で対象の注文を選び、「出荷ステータスを『出荷処理中』に更新」を押す",
+        "2. 「出荷処理中」一覧で、注文ごとに出荷日・着荷日・配送会社・伝票番号を入れ、対象を選んで「入力情報を更新」を押す",
+        ...(test?["3. テストなので、ここで止める（「出荷ステータスを『出荷済み』に更新」は押さない）"]
+          :["3. 対象を選んだまま「出荷ステータスを『出荷済み』に更新」を押す"]),
+        "4. ボタンを押すと画面の中に確認ウィンドウが出るので、件数を確かめて「更新」を押す。「一括処理完了」でエラー0件になったことを確かめる",
+        "","メールのチェックボックス：",
+        "・「同時に出荷通知メールを送信」はONのままにする",
+        "・それ以外のメールのチェックボックス（「同時に注文承諾メールを送信」など）はすべて外す",
+        "・ボタンを押す前に、どのチェックボックスがON・OFFになっているかを毎回確かめる");}
     if(b.length){L.push("","【BASE】"+url("BASE"),
       "注文番号で開き、配送業者・追跡番号を入れて「発送済み」にする。",
       "購入者へのメッセージは、テンプレート「ZAZOOマウス」を選び、出荷日・着荷予定日・到着時刻（指定があるときだけ）を入れる");
