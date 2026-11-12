@@ -205,7 +205,6 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
     </div>
     <div class="files" id="files"></div>
     <div class="opts">
-      <label><input type="checkbox" id="optAutoDl" checked> 変換したらすぐCSVをダウンロード</label>
       <label><input type="checkbox" id="optHeader"> ヘッダー行を付ける</label>
       <label><input type="checkbox" id="optAbbr" checked> 品名を略号化（アダルト→A／ピンク→P）</label>
       <label><input type="checkbox" id="optMerge" checked> 同一宛先を1伝票にまとめる</label>
@@ -241,6 +240,7 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
     <div class="note" style="margin-top:8px">
       2重処理チェック：ダウンロード／コピーした注文は「処理済み」として記録し、次回同じ注文を変換すると赤で警告します（重複発送の防止）。現在の処理済み：<b id="histCount">0</b> 件
       　<button id="histRegister" type="button" class="ghost" style="padding:2px 8px;font-size:12px">この結果を処理済みに登録</button>
+      　<button id="histUndoToday" type="button" class="ghost" style="padding:2px 8px;font-size:12px">今日登録した分を外す</button>
       　<button id="histClear" type="button" class="ghost" style="padding:2px 8px;font-size:12px">履歴をクリア</button>
     </div>
   </div>
@@ -844,8 +844,6 @@ function doConvert(){
   histBase=loadHistory();
   renderTable(merged.length,all.length,excluded);
   $("result").classList.remove("hide");$("outRow").classList.remove("hide");
-  // 出荷アプリ：出来たらすぐCSVをダウンロードし、確認用の一覧を見せる
-  if($("optAutoDl").checked&&rows.length)$("dl").click();
   $("result").scrollIntoView({behavior:"smooth",block:"start"});
 }
 $("run").onclick=doConvert;
@@ -938,6 +936,12 @@ $("dl").onclick=()=>{
 };
 $("histRegister").onclick=()=>{addToHistory(curOids());refreshCopyNewLabel();toast("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）");};
 $("histClear").onclick=clearHistory;
+$("histUndoToday").onclick=()=>{const h=loadHistory();const d=isoJST(todayJST());const ks=Object.keys(h).filter(k=>h[k]===d);
+  if(!ks.length){toast("今日登録した分はありません");return;}
+  if(!confirm("今日（"+d+"）に処理済みとして登録した "+ks.length+" 件を外します。きのうまでの分は残ります。よろしいですか？"))return;
+  ks.forEach(k=>{delete h[k];});saveHistory(h);updateHistCount();
+  if(!$("result").classList.contains("hide"))doConvert();else refreshCopyNewLabel();
+  toast("今日登録した "+ks.length+" 件を外しました（残り "+Object.keys(h).length+" 件）");};
 const COPY_LABEL="クリップボードにコピー（テンプレに貼付）";
 // 未処理（過去に変換済みでない）伝票の件数を数えてボタン名に反映
 function nUnprocessed(){const hist=histBase||loadHistory();let n=0;metaOids.forEach(ids=>{if(!(ids||[]).some(o=>hist[o]))n++;});return n;}
@@ -1033,8 +1037,6 @@ $("copyNew").onclick=()=>{
   $("folderUrl").oninput=()=>{st.folder=$("folderUrl").value.trim();save();};
   if(st.urls.YAHOO==="https://pro.store.yahoo.co.jp/"){delete st.urls.YAHOO;save();} // 古い既定のURLが残っていたら新しい既定に戻す
   urlInputs.forEach(i=>{const k=i.dataset.site;i.value=st.urls[k]||DEF_URL[k];i.oninput=()=>{st.urls[k]=i.value.trim();save();};});
-  $("optAutoDl").checked=st.autoDl!==false;
-  $("optAutoDl").onchange=()=>{st.autoDl=$("optAutoDl").checked;save();};
   const openUrl=k=>st.urls[k]||DEF_URL[k];
   // 拡張への指示文（11/12 松村さん）：保存はふつうのローカルダウンロード。
   // 同じ日に、拡張が同じボタンを押し直してYahoo!を4回・BASEを2回落としたので、「1回だけ押す」の共通ルールを先頭に置く
