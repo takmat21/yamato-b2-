@@ -12,6 +12,7 @@
 //   --hours   フォルダを渡したとき、この時間より新しいファイルだけを読む（既定 24）
 //   --today   「出荷予定日が基準日より後の注文を外す」を ON にする（--date で基準日）
 //   --ledger  台帳（xlsx）の最後の行の下に、新しい分を書き足す（書く前に控えを作る）
+//   --clip    新しい分を、エクセルに貼れる形でクリップボードに置く（Windows だけ。出荷アプリの「コピー」と同じ形）
 //   --dry-run 何も書きかえない（数だけ出す）
 //
 // 画面に出すのは件数と注文番号だけ。お客様の名前・住所・電話は出さない。
@@ -34,6 +35,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === "--ledger") opt.ledger = args[++i];
   else if (a === "--today") opt.today = true;
   else if (a === "--dry-run") opt.dry = true;
+  else if (a === "--clip") opt.clip = true;
   else { console.error("分からない指定：" + a); process.exit(2); }
 }
 if (!opt.in.length || !opt.out) { console.error("--in と --out は必ず指定してください"); process.exit(2); }
@@ -62,7 +64,7 @@ function collect() {
 }
 
 // ---- 出荷アプリを読み込む ----
-const state = opt.state && fs.existsSync(opt.state) ? JSON.parse(fs.readFileSync(opt.state, "utf8")) : {};
+const state = opt.state && fs.existsSync(opt.state) && fs.readFileSync(opt.state, "utf8").trim() ? JSON.parse(fs.readFileSync(opt.state, "utf8").replace(/^\ufeff/, "")) : {};
 const html = fs.readFileSync(opt.ship, "utf8");
 const dom = new JSDOM(html, {
   runScripts: "dangerously",
@@ -143,6 +145,7 @@ if (!opt.dry && keep.length) {
   result.tsv = tsvPath; result.csv = csvPath;
 
   if (opt.ledger) result.ledger = await appendLedger(opt.ledger, newRows);
+  if (opt.clip) result.clipboard = await toClipboard(newRows, tsv, path.join(opt.out, `b2_new_${stamp}`));
 
   // 処理済みに記録して、state を書きもどす
   w.__oids = newOids;
@@ -156,9 +159,54 @@ if (!opt.dry && keep.length) {
 console.log(JSON.stringify(result, null, 1));
 w.close();
 
+// ---- エクセルに貼れる形でクリップボードに置く（出荷アプリの copyToClipboard と同じ HTML 表）----
+// コードは文字列の書式（先頭の0を残す）、E・F 列は日付の書式にする。
+function clipHtml(rws) {
+  const esc = (s) => String(s).replace(/[\r\n]+/g, " ").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const head = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+    + '<head><meta charset="utf-8">'
+    + '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'
+    + '<x:Name>B2</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'
+    + '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'
+    + '</head><body>';
+  const DATE = new Set([4, 5]);
+  let h = head + "<!--StartFragment--><table>";
+  rws.forEach((r) => { h += "<tr>" + r.map((c, ci) => `<td style="mso-number-format:'${DATE.has(ci) ? "yyyy\\/m\\/d" : "\\@"}';white-space:nowrap;border:none">${esc(c == null ? "" : c) || "&nbsp;"}</td>`).join("") + "</tr>"; });
+  return h + "</table><!--EndFragment--></body></html>";
+}
+async function toClipboard(rws, tsv, base) {
+  const html = clipHtml(rws);
+  // Windows の「HTML Format」は、先頭に位置（UTF-8 のバイト数）を書いた見出しが要る
+  const pad = (n) => String(n).padStart(10, "0");
+  const hdr = (a, b, c, d) => `Version:0.9\r\nStartHTML:${pad(a)}\r\nEndHTML:${pad(b)}\r\nStartFragment:${pad(c)}\r\nEndFragment:${pad(d)}\r\n`;
+  const hl = Buffer.byteLength(hdr(0, 0, 0, 0));
+  const body = Buffer.from(html, "utf8");
+  const sf = hl + Buffer.byteLength(html.slice(0, html.indexOf("<!--StartFragment-->") + 20));
+  const ef = hl + Buffer.byteLength(html.slice(0, html.indexOf("<!--EndFragment-->")));
+  const cf = Buffer.concat([Buffer.from(hdr(hl, hl + body.length, sf, ef), "ascii"), body]);
+  const cfPath = base + ".cfhtml", txtPath = base + ".cliptext.txt", ps1 = base + ".clip.ps1";
+  fs.writeFileSync(cfPath, cf);
+  fs.writeFileSync(txtPath, tsv, "utf8");
+  if (process.platform !== "win32") return { done: false, note: "Windows ではないので、クリップボードには置いていない", file: cfPath };
+  fs.writeFileSync(ps1, [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    `$b=[System.IO.File]::ReadAllBytes('${cfPath.replace(/'/g, "''")}')`,
+    "$ms=New-Object System.IO.MemoryStream(,$b)",
+    `$t=[System.IO.File]::ReadAllText('${txtPath.replace(/'/g, "''")}',[System.Text.Encoding]::UTF8)`,
+    "$d=New-Object System.Windows.Forms.DataObject",
+    "$d.SetData('HTML Format',$ms)",
+    "$d.SetData([System.Windows.Forms.DataFormats]::UnicodeText,$t)",
+    "[System.Windows.Forms.Clipboard]::SetDataObject($d,$true)",
+  ].join("\r\n"), "utf8");
+  const { execFileSync } = await import("node:child_process");
+  try { execFileSync("powershell.exe", ["-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", ps1], { stdio: "pipe" }); return { done: true, rows: rws.length }; }
+  catch (e) { return { done: false, note: "クリップボードに置けませんでした：" + String(e.message).slice(0, 200), file: cfPath }; }
+}
+
 // ---- 台帳（xlsx）の最後の行の下に書き足す ----
 async function appendLedger(file, rws) {
   if (!fs.existsSync(file)) fail("台帳が見つかりません：" + file);
+  if (!/\.xlsx$/i.test(file)) fail("台帳に直接書けるのは .xlsx だけです（.xls は、エクセルで「名前を付けて保存」で .xlsx にしてから）。それまでは --clip で貼り付けてください");
   const { default: ExcelJS } = await import("exceljs");
   const wb = new ExcelJS.Workbook();
   try { await wb.xlsx.readFile(file); } catch (e) { fail("台帳を開けません（エクセルで開いたままなら、閉じてからやり直してください）：" + e.message); }
