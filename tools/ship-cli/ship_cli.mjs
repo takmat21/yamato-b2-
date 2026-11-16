@@ -13,6 +13,8 @@
 //   --today   「出荷予定日が基準日より後の注文を外す」を ON にする（--date で基準日）
 //   --ledger  台帳（xlsx）の最後の行の下に、新しい分を書き足す（書く前に控えを作る）
 //   --clip    新しい分を、エクセルに貼れる形でクリップボードに置く（Windows だけ。出荷アプリの「コピー」と同じ形）
+//   --reclip  変換はせず、いちばん新しい貼り付け用のデータを、もう一度クリップボードに置く（--out だけ指定）
+//   --prompt  変換はせず、拡張に貼る「注文をまとめてダウンロード」の指示文を出す（--state だけ指定。出荷アプリのボタンと同じ文）
 //   --dry-run 何も書きかえない（数だけ出す）
 //
 // 画面に出すのは件数と注文番号だけ。お客様の名前・住所・電話は出さない。
@@ -36,11 +38,23 @@ for (let i = 0; i < args.length; i++) {
   else if (a === "--today") opt.today = true;
   else if (a === "--dry-run") opt.dry = true;
   else if (a === "--clip") opt.clip = true;
+  else if (a === "--reclip") opt.reclip = true;
+  else if (a === "--prompt") opt.prompt = true;
   else { console.error("分からない指定：" + a); process.exit(2); }
 }
-if (!opt.in.length || !opt.out) { console.error("--in と --out は必ず指定してください"); process.exit(2); }
-
 const fail = (msg) => { console.log(JSON.stringify({ ok: false, error: msg }, null, 1)); process.exit(1); };
+
+if (opt.reclip) { // いちばん新しい .clip.ps1 を動かし直す
+  if (!opt.out || !fs.existsSync(opt.out)) fail("--out のフォルダが見つかりません");
+  const ps = fs.readdirSync(opt.out).filter((n) => n.endsWith(".clip.ps1")).sort().pop();
+  if (!ps) fail("貼り付け用のデータがまだありません");
+  if (process.platform !== "win32") fail("Windows ではないので、クリップボードには置けません");
+  const { execFileSync } = await import("node:child_process");
+  try { execFileSync("powershell.exe", ["-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", path.join(opt.out, ps)], { stdio: "pipe" }); }
+  catch (e) { fail("クリップボードに置けませんでした：" + String(e.message).slice(0, 200)); }
+  console.log(JSON.stringify({ ok: true, reclip: ps }, null, 1)); process.exit(0);
+}
+if (!opt.prompt && (!opt.in.length || !opt.out)) { console.error("--in と --out は必ず指定してください"); process.exit(2); }
 
 // ---- 読むファイルを集める ----
 function collect() {
@@ -75,12 +89,20 @@ const dom = new JSDOM(html, {
     w.TextDecoder = TextDecoder; w.TextEncoder = TextEncoder;
     w.Element.prototype.scrollIntoView = function () {};
     w.confirm = () => false; w.alert = () => {};
-    w.scrollTo = () => {};
+    w.scrollTo = () => {}; w.open = () => null;
+    w.document.execCommand = () => true;
   },
 });
 const w = dom.window;
 const ev = (code) => w.eval(code);
 if (typeof ev("typeof doConvert") !== "string" || ev("typeof doConvert") !== "function") fail("ship.html を読み込めませんでした");
+
+if (opt.prompt) { // 出荷アプリの「注文をまとめてダウンロード」と同じ指示文
+  const b = w.document.querySelector("#openBtns button");
+  if (!b) fail("出荷アプリで、ダウンロードする店が1つも選ばれていません");
+  b.click();
+  console.log(ev(`$("lastPrompt").value`)); w.close(); process.exit(0);
+}
 
 // ---- ファイルを入れる（出荷アプリの読み取りと同じ関数を使う）----
 const used = [], skippedFiles = [];
@@ -120,7 +142,7 @@ const metaChan = JSON.parse(ev("JSON.stringify(metaChan)"));
 const hist = JSON.parse(ev("JSON.stringify(loadHistory())"));
 const keep = rows.map((r, i) => i).filter((i) => !(metaOids[i] || []).some((o) => hist[o]));
 const newRows = keep.map((i) => rows[i]);
-const newOids = []; keep.forEach((i) => (metaOids[i] || []).forEach((o) => { if (o) newOids.push(o); }));
+const newOids = []; keep.forEach((i) => (metaOids[i] || []).forEach((o) => { if (o && !newOids.includes(o)) newOids.push(o); }));
 const byCh = {}; keep.forEach((i) => { byCh[metaChan[i]] = (byCh[metaChan[i]] || 0) + 1; });
 
 const stamp = (() => { const d = new Date(); const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; })();
