@@ -1,0 +1,9 @@
+{
+  "name": "ship-cli",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "出荷アプリ（ship.html）と同じ変換を、ファイルから直接おこなう道具",
+  "scripts": { "test": "node test/run_test.mjs" },
+  "dependencies": { "exceljs": "^4.4.0", "jsdom": "^24.1.0" }
+}

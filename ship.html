@@ -242,6 +242,7 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
       　<button id="histRegister" type="button" class="ghost" style="padding:2px 8px;font-size:12px">この結果を処理済みに登録</button>
       　<button id="histUndoToday" type="button" class="ghost" style="padding:2px 8px;font-size:12px">今日登録した分を外す</button>
       　<button id="histClear" type="button" class="ghost" style="padding:2px 8px;font-size:12px">履歴をクリア</button>
+      　<button id="stateExport" type="button" class="ghost" style="padding:2px 8px;font-size:12px" title="ご依頼主の設定・短縮ルール・処理済みの記録を、1つのファイル（ship_state.json）に書き出します。PC用の変換の道具に渡すための物です">設定と履歴を書き出す</button>
     </div>
   </div>
 
@@ -937,6 +938,10 @@ $("dl").onclick=()=>{
 };
 $("histRegister").onclick=()=>{addToHistory(curOids());refreshCopyNewLabel();toast("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）");};
 $("histClear").onclick=clearHistory;
+// PC用の変換の道具（tools/ship-cli）に渡すために、このブラウザに保存してある設定と履歴を書き出す
+$("stateExport").onclick=()=>{const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(/^(yamatoB2_|shipApp_|zazou_ship_)/.test(k))o[k]=localStorage.getItem(k);}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:"application/json"}));a.download="ship_state.json";a.click();
+  toast("設定と履歴を ship_state.json に書き出しました（"+Object.keys(o).length+" 項目）");};
 $("histUndoToday").onclick=()=>{const h=loadHistory();const d=isoJST(todayJST());const ks=Object.keys(h).filter(k=>h[k]===d);
   if(!ks.length){toast("今日登録した分はありません");return;}
   if(!confirm("今日（"+d+"）に処理済みとして登録した "+ks.length+" 件を外します。きのうまでの分は残ります。よろしいですか？"))return;
