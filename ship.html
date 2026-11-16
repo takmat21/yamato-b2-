@@ -180,6 +180,7 @@ td.okihai{background:#f3e8ff!important;color:#7b2fbf;font-weight:700}
     </div>
     <div class="note">入力内容はこのブラウザ内（localStorage）にのみ保存され、外部やサーバーには送信されません。共有・公開PCでは入力したままにしないでください。</div>
     <button class="ghost sm" id="setReset" type="button">入力をクリア</button>
+    <button class="ghost sm" id="stateExport2" type="button" title="ご依頼主の設定・短縮ルール・処理済みの記録を、1つのファイル（ship_state.json）に書き出します。何も消えません。PC用の変換の道具に渡すための物です">設定と履歴を書き出す（ship_state.json）</button>
   </details>
 
   <details class="card" id="shortenCard">
@@ -939,7 +940,7 @@ $("dl").onclick=()=>{
 $("histRegister").onclick=()=>{addToHistory(curOids());refreshCopyNewLabel();toast("この結果の注文を『処理済み』に登録しました（現在 "+Object.keys(loadHistory()).length+" 件）");};
 $("histClear").onclick=clearHistory;
 // PC用の変換の道具（tools/ship-cli）に渡すために、このブラウザに保存してある設定と履歴を書き出す
-$("stateExport").onclick=()=>{const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(/^(yamatoB2_|shipApp_|zazou_ship_)/.test(k))o[k]=localStorage.getItem(k);}
+$("stateExport").onclick=$("stateExport2").onclick=()=>{const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(/^(yamatoB2_|shipApp_|zazou_ship_)/.test(k))o[k]=localStorage.getItem(k);}
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:"application/json"}));a.download="ship_state.json";a.click();
   toast("設定と履歴を ship_state.json に書き出しました（"+Object.keys(o).length+" 項目）");};
 $("histUndoToday").onclick=()=>{const h=loadHistory();const d=isoJST(todayJST());const ks=Object.keys(h).filter(k=>h[k]===d);
